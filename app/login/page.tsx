@@ -2,121 +2,150 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Lock, Loader2, AlertCircle, ArrowRight, Mail } from 'lucide-react';
+import { Lock, Loader2, AlertCircle, ArrowLeft, Mail } from 'lucide-react';
+import Link from 'next/link';
 
 export default function LoginPage() {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const router = useRouter();
 
-    const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
 
-        try {
-            const res = await fetch('/api/auth/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password }),
-            });
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-            if (res.ok) {
-                router.push('/admin');
-                router.refresh();
-            } else {
-                const data = await res.json();
-                setError(data.error || 'Invalid credentials');
-            }
-        } catch (err) {
-            setError('An error occurred');
-        } finally {
-            setLoading(false);
-        }
-    };
+      if (res.ok) {
+        router.push('/admin');
+        router.refresh();
+      } else {
+        const data = await res.json();
+        setError(data.error || 'Invalid credentials');
+      }
+    } catch (err) {
+      console.error(err);
+      setError('An error occurred during authentication');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 relative overflow-hidden">
-            {/* Background Shapes */}
-            <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl"></div>
-                <div className="absolute bottom-0 left-0 w-96 h-96 bg-red-500/5 rounded-full blur-3xl"></div>
+
+  return (
+    <div className="min-h-screen bg-[#FFFBF0] text-[#111] font-sans flex flex-col">
+      {/* Header */}
+      <header className="w-full bg-[#FFFBF0] border-b-2 border-black sticky top-0 z-50">
+        <div className="google-stripe" />
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full border-2 border-black bg-[#4285F4] text-white flex items-center justify-center font-black text-xs shadow-[2px_2px_0_0_#000]">
+              GDG
             </div>
-
-            <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 relative z-10 border border-gray-100">
-                <div className="text-center mb-8">
-                    <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm transform rotate-3">
-                        <Lock className="w-8 h-8" />
-                    </div>
-                    <h1 className="text-2xl font-bold text-gray-900">Admin Access</h1>
-                    <p className="text-gray-500 text-sm mt-2">Secure login for GDG Organizers</p>
-                </div>
-
-                <form onSubmit={handleLogin} className="space-y-5">
-                    <div>
-                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Email Address</label>
-                        <div className="relative">
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="admin@gdg.com"
-                                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                                required
-                            />
-                            <Mail className="w-5 h-5 text-gray-400 absolute left-3 top-3" />
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Password</label>
-                        <div className="relative">
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="••••••••"
-                                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                                required
-                            />
-                            <Lock className="w-5 h-5 text-gray-400 absolute left-3 top-3" />
-                        </div>
-                    </div>
-
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold hover:bg-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg hover:shadow-blue-500/30"
-                    >
-                        {loading ? (
-                            <>
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                                Verifying...
-                            </>
-                        ) : (
-                            <>
-                                Login to Dashboard
-                                <ArrowRight className="w-4 h-4" />
-                            </>
-                        )}
-                    </button>
-                </form>
-
-                {error && (
-                    <div className="mt-6 p-4 bg-red-50 text-red-700 rounded-xl flex items-center gap-3 text-sm animate-in fade-in slide-in-from-top-2">
-                        <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                        {error}
-                    </div>
-                )}
-
-                <div className="mt-8 text-center">
-                    <a href="/" className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
-                        ← Back to Home
-                    </a>
-                </div>
-            </div>
+            <span className="font-black text-sm uppercase tracking-tight text-[#111]">
+              DevFest Ranchi 2026
+            </span>
+          </Link>
+          <span className="px-3 py-1 rounded-full border-2 border-black bg-[#FBBC05] text-[#111] font-black text-xs uppercase tracking-wider shadow-[2px_2px_0_0_#000]">
+            Organizer Portal
+          </span>
         </div>
-    );
+      </header>
+
+      <main className="flex-grow flex items-center justify-center p-4 sm:p-6">
+        <div className="rounded-[24px] sm:rounded-[28px] border-[3px] border-black bg-white p-7 sm:p-9 shadow-[6px_6px_0_0_#000] max-w-md w-full space-y-6">
+          <div className="text-center space-y-2">
+            <div className="w-14 h-14 rounded-full border-2 border-black bg-[#4285F4] text-white flex items-center justify-center mx-auto shadow-[3px_3px_0_0_#000]">
+              <Lock className="w-7 h-7 stroke-[2.5]" />
+            </div>
+            <span className="text-xs font-black uppercase text-[#4285F4] tracking-[0.08em] block">
+              SECURE ORGANIZER ACCESS
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-[#111]">
+              Admin Sign In
+            </h1>
+            <p className="text-xs font-semibold text-[#555]">
+              Authorized GDG Ranchi organizers only.
+            </p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-black uppercase tracking-wider text-[#111]">
+                Email Address
+              </label>
+              <div className="relative">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@gdgranchi.in"
+                  className="w-full h-12 pl-11 pr-4 rounded-xl border-2 border-black bg-white font-mono text-sm font-bold text-[#111] placeholder:text-[#999] shadow-[2.5px_2.5px_0_0_#000] focus:border-[#4285F4] focus:shadow-[3px_3px_0_0_#4285F4] outline-none transition-all"
+                  required
+                />
+                <Mail className="w-5 h-5 text-black absolute left-3.5 top-3.5" />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-black uppercase tracking-wider text-[#111]">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full h-12 pl-11 pr-4 rounded-xl border-2 border-black bg-white font-mono text-sm font-bold text-[#111] placeholder:text-[#999] shadow-[2.5px_2.5px_0_0_#000] focus:border-[#4285F4] focus:shadow-[3px_3px_0_0_#4285F4] outline-none transition-all"
+                  required
+                />
+                <Lock className="w-5 h-5 text-black absolute left-3.5 top-3.5" />
+              </div>
+            </div>
+
+            {error && (
+              <div className="rounded-xl border-2 border-black bg-[#FCE8E6] p-3 text-[#111] shadow-[2px_2px_0_0_#000] flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-[#C5221F] shrink-0" />
+                <p className="text-xs font-bold text-[#C5221F]">{error}</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-[#4285F4] hover:bg-[#1a73e8] text-white font-black text-xs uppercase tracking-wider border-2 border-black shadow-[3.5px_3.5px_0_0_#000] hover:shadow-[1.5px_1.5px_0_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-y-[3.5px] transition-all cursor-pointer disabled:opacity-60"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin stroke-[2.5]" />
+                  <span>Verifying Credentials...</span>
+                </>
+              ) : (
+                <span>Access Dashboard</span>
+              )}
+            </button>
+          </form>
+
+          <div className="pt-2 text-center">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#555] hover:text-[#111]"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to Public Portal</span>
+            </Link>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
 }

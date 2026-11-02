@@ -1,63 +1,73 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { generateCertificate } from '@/lib/pdf-generator';
-import fs from 'fs/promises';
-import path from 'path';
+import { getTemplateBytes } from '@/lib/template-cache';
 
 export async function GET(req: NextRequest) {
-    const { searchParams } = new URL(req.url);
-    const ticketId = searchParams.get('ticketId');
+  const { searchParams } = new URL(req.url);
+  const rawTicketId = searchParams.get('ticketId');
 
-    if (!ticketId) {
-        return NextResponse.json({ error: 'Ticket Order ID is required' }, { status: 400 });
+  if (!rawTicketId || !rawTicketId.trim()) {
+    return NextResponse.json({ error: 'Ticket Order ID is required.' }, { status: 400 });
+  }
+
+  const cleanTicketId = rawTicketId.trim();
+
+  try {
+    // 1. Fast indexed lookup by exact ticketId
+    let attendee = await prisma.attendee.findUnique({
+      where: { ticketId: cleanTicketId },
+    });
+
+    // 2. Fast uppercase lookup fallback
+    if (!attendee && cleanTicketId.toUpperCase() !== cleanTicketId) {
+      attendee = await prisma.attendee.findUnique({
+        where: { ticketId: cleanTicketId.toUpperCase() },
+      });
     }
 
-    try {
-        const attendee = await prisma.attendee.findUnique({
-            where: { ticketId: ticketId.trim() },
-        });
-
-        if (!attendee) {
-            return NextResponse.json({
-                error: 'It seems you didn’t check-in at the event, so no certificate is found. Please enter the valid ticket order ID you checked in with.'
-            }, { status: 404 });
-        }
-
-        // 1. Try to get template from DB (Base64)
-        const config = await prisma.config.findUnique({ where: { key: 'template_data' } });
-
-        let templateBytes: Uint8Array;
-
-        if (config && config.value) {
-            // Convert Base64 string back to Buffer
-            templateBytes = new Uint8Array(Buffer.from(config.value, 'base64'));
-        } else {
-            // 2. Fallback to default file in public/uploads
-            // Note: In Vercel, process.cwd() is the root. public files are usually copied to the output.
-            // However, reading from public/ at runtime in serverless can be tricky.
-            // Best practice is to use path.join(process.cwd(), 'public', ...)
-            const defaultPath = path.join(process.cwd(), 'public', 'uploads', 'certificate_template.pdf');
-            try {
-                const fileBuffer = await fs.readFile(defaultPath);
-                templateBytes = new Uint8Array(fileBuffer);
-            } catch (err) {
-                console.error('Failed to read default template:', err);
-                return NextResponse.json({ error: 'Certificate template not found.' }, { status: 500 });
-            }
-        }
-
-        // Generate PDF
-        const pdfBytes = await generateCertificate(attendee.name, templateBytes, attendee.ticketId);
-
-        // Return PDF
-        return new NextResponse(Buffer.from(pdfBytes), {
-            headers: {
-                'Content-Type': 'application/pdf',
-                'Content-Disposition': `attachment; filename="GDG_Certificate_${attendee.name.replace(/\s+/g, '_')}.pdf"`,
-            },
-        });
-    } catch (error) {
-        console.error('Certificate error:', error);
-        return NextResponse.json({ error: 'Internal Server Error', details: String(error) }, { status: 500 });
+    // 3. Fallback to case-insensitive lookup
+    if (!attendee) {
+      attendee = await prisma.attendee.findFirst({
+        where: {
+          ticketId: {
+            equals: cleanTicketId,
+            mode: 'insensitive',
+          },
+        },
+      });
     }
+
+    if (!attendee) {
+      return NextResponse.json(
+        {
+          error:
+            'It seems you did not check-in at the event, so no certificate was found. Please enter a valid ticket order ID.',
+        },
+        { status: 404 }
+      );
+    }
+
+    // 4. Retrieve cached template bytes (avoids multi-megabyte DB roundtrip per request)
+    const templateBytes = await getTemplateBytes();
+
+    // 5. Generate PDF with dynamic auto-scaled font sizing and crisp QR
+    const pdfBytes = await generateCertificate(attendee.name, templateBytes, attendee.ticketId);
+
+    // 6. Return response with caching headers
+    const safeFilename = attendee.name.trim().replace(/\s+/g, '_') || 'Attendee';
+    return new NextResponse(Buffer.from(pdfBytes), {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="GDG_Certificate_${safeFilename}.pdf"`,
+        'Cache-Control': 'private, no-transform, max-age=3600',
+      },
+    });
+  } catch (error) {
+    console.error('Certificate generation error:', error);
+    return NextResponse.json(
+      { error: 'Internal Server Error while generating certificate.', details: String(error) },
+      { status: 500 }
+    );
+  }
 }

@@ -1,26 +1,77 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap');
 @import "tailwindcss";
+@config "../tailwind.config.js";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-gdg-blue: #4285F4;
+  --color-gdgBlue: #4285F4;
+  --color-gdg-red: #EA4335;
+  --color-gdgRed: #EA4335;
+  --color-gdg-yellow: #FBBC05;
+  --color-gdgYellow: #FBBC05;
+  --color-gdg-green: #34A853;
+  --color-gdgGreen: #34A853;
+  --color-ranchi-sand: #FFFBF0;
+  --color-ranchiSand: #FFFBF0;
+  --color-ranchi-cream: #FFF8E7;
+  --color-ranchiCream: #FFF8E7;
+
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-display: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --shadow-neo-sm: 2px 2px 0 0 #000;
+  --shadow-neo: 4px 4px 0 0 #000;
+  --shadow-neo-lg: 6px 6px 0 0 #000;
+  --shadow-neo-xl: 8px 8px 0 0 #000;
+  --shadow-neo-blue: 4px 4px 0 0 #4285F4;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: #FFFBF0;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #111111;
+  font-weight: 600;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
 }
+
+/* Retro-Tech Ranchi Sand Grid Pattern */
+.bg-grid-pattern {
+  background-color: #FFFBF0;
+  background-image: 
+    linear-gradient(to right, rgba(0, 0, 0, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.045) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Signature Google 4-Color Stripe Header */
+.google-stripe,
+.tribal-border {
+  background-image: repeating-linear-gradient(
+    90deg,
+    #4285F4 0 16px,
+    #EA4335 16px 32px,
+    #FBBC05 32px 48px,
+    #34A853 48px 64px
+  );
+  height: 6px;
+  width: 100%;
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 25s linear infinite;
+}
+

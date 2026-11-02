@@ -1,180 +1,597 @@
 'use client';
 
-import { useState } from 'react';
-import { Search, Download, AlertCircle, Loader2, CheckCircle, Sparkles } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import {
+  Search,
+  Download,
+  AlertCircle,
+  Loader2,
+  CheckCircle2,
+  Sparkles,
+  ExternalLink,
+  Award,
+  ShieldCheck,
+  FileText,
+  Printer,
+  ImageIcon,
+} from 'lucide-react';
+import Link from 'next/link';
 import Image from 'next/image';
+import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+
+
+interface PdfPage {
+  getViewport: (options: { scale: number }) => { width: number; height: number };
+  render: (options: {
+    canvasContext: CanvasRenderingContext2D;
+    viewport: unknown;
+  }) => { promise: Promise<void> };
+}
+
+interface PdfDocument {
+  getPage: (pageNumber: number) => Promise<PdfPage>;
+}
+
+interface PdfJsLib {
+  GlobalWorkerOptions: { workerSrc: string };
+  getDocument: (url: string) => { promise: Promise<PdfDocument> };
+}
+
+interface CustomWindow extends Window {
+  pdfjsLib?: PdfJsLib;
+}
 
 export default function Home() {
   const [ticketId, setTicketId] = useState('');
   const [loading, setLoading] = useState(false);
+  const [downloadingPng, setDownloadingPng] = useState(false);
   const [error, setError] = useState('');
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [attendeeName, setAttendeeName] = useState('');
+  const [verifiedTicketId, setVerifiedTicketId] = useState('');
+  const previewRef = useRef<HTMLDivElement>(null);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!ticketId) return;
+  // Check URL parameters for ticketId (e.g. ?ticketId=GOOGE252748058)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlTicket = params.get('ticketId');
+      if (urlTicket) {
+        setTicketId(urlTicket);
+        fetchCertificate(urlTicket);
+      }
+    }
+  }, []);
+
+  const fetchCertificate = async (idToSearch: string) => {
+    const trimmedId = idToSearch.trim().toUpperCase();
+    if (!trimmedId) return;
+
+    if (downloadUrl) {
+      window.URL.revokeObjectURL(downloadUrl);
+    }
 
     setLoading(true);
     setError('');
     setDownloadUrl(null);
     setAttendeeName('');
+    setVerifiedTicketId('');
 
     try {
-      const res = await fetch(`/api/certificate?ticketId=${encodeURIComponent(ticketId)}`);
+      const res = await fetch(`/api/certificate?ticketId=${encodeURIComponent(trimmedId)}`);
 
       if (res.ok) {
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
         setDownloadUrl(url);
+        setVerifiedTicketId(trimmedId);
 
         const disposition = res.headers.get('Content-Disposition');
         let filename = 'Certificate.pdf';
         if (disposition && disposition.includes('filename=')) {
           filename = disposition.split('filename=')[1].replace(/"/g, '');
         }
-        setAttendeeName(filename.replace('GDG_Certificate_', '').replace('.pdf', '').replace(/_/g, ' '));
+        const parsedName = filename
+          .replace('GDG_Certificate_', '')
+          .replace('.pdf', '')
+          .replace(/_/g, ' ');
+        setAttendeeName(parsedName);
 
+        // Smooth scroll to preview on mobile/desktop
+        setTimeout(() => {
+          previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 150);
       } else {
         const data = await res.json();
-        setError(data.error || 'Certificate not found.');
+        setError(
+          data.error ||
+          'It seems you did not check-in at the event, so no certificate was found. Please enter a valid ticket order ID.'
+        );
       }
     } catch (err) {
       console.error(err);
-      setError('An unexpected error occurred. Please try again.');
+      setError('An unexpected error occurred while generating your certificate. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchCertificate(ticketId);
+  };
+
+  // Convert PDF to PNG using PDF.js via client-side dynamic load
+  const handleDownloadPng = async () => {
+    if (!downloadUrl) return;
+    setDownloadingPng(true);
+
+    try {
+      const customWindow = window as unknown as CustomWindow;
+
+      // Ensure pdfjsLib is loaded in window
+      if (!customWindow.pdfjsLib) {
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+          script.onload = () => {
+            const pdfjs = customWindow.pdfjsLib;
+            if (pdfjs) {
+              pdfjs.GlobalWorkerOptions.workerSrc =
+                'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+              resolve();
+            } else {
+              reject(new Error('PDF.js failed to initialize'));
+            }
+          };
+          script.onerror = () => reject(new Error('Failed to load PDF.js script'));
+          document.head.appendChild(script);
+        });
+      }
+
+      const pdfjs = customWindow.pdfjsLib;
+      if (!pdfjs) throw new Error('PDF.js not available');
+
+      const loadingTask = pdfjs.getDocument(downloadUrl);
+      const pdf = await loadingTask.promise;
+      const page = await pdf.getPage(1);
+
+      // Render at 2.5x resolution for ultra-sharp HD PNG
+      const scale = 2.5;
+      const viewport = page.getViewport({ scale });
+
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+
+      if (context) {
+        await page.render({
+          canvasContext: context,
+          viewport: viewport,
+        }).promise;
+
+        const pngUrl = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = pngUrl;
+        const safeName = attendeeName.trim().replace(/\s+/g, '_') || 'Attendee';
+        link.download = `DevFest_Ranchi_2026_Certificate_${safeName}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } catch (err) {
+      console.warn('PNG rendering fallback to PDF download:', err);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      const safeName = attendeeName.trim().replace(/\s+/g, '_') || 'Attendee';
+      link.download = `DevFest_Ranchi_2026_Certificate_${safeName}.pdf`;
+      link.click();
+    } finally {
+      setDownloadingPng(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen font-sans relative overflow-hidden flex flex-col">
-      {/* Background Image with Overlay */}
-      <div className="absolute inset-0 z-0">
-        <Image
-          src="/bg-home.jpg"
-          alt="Background"
-          fill
-          className="object-cover"
-          priority
-        />
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"></div>
+    <div className="min-h-screen bg-grid-pattern text-[#111111] font-sans flex flex-col selection:bg-[#FBBC05] selection:text-black relative overflow-x-hidden">
+      {/* Halloween Top Spider Web Accents */}
+      <Image
+        src="/assets/spider-web.png"
+        alt=""
+        width={288}
+        height={277}
+        unoptimized
+        className="absolute -top-6 -right-6 sm:-top-4 sm:-right-4 w-44 sm:w-72 opacity-80 pointer-events-none select-none z-0"
+      />
+      <Image
+        src="/assets/spider-web.png"
+        alt=""
+        width={224}
+        height={215}
+        unoptimized
+        className="absolute -top-10 -left-10 w-36 sm:w-56 opacity-35 pointer-events-none select-none z-0 transform -scale-x-100"
+      />
+
+      {/* Hanging Spider from top right */}
+      <div
+        className="absolute top-0 right-10 sm:right-28 hidden md:block pointer-events-none select-none z-20 animate-bounce"
+        style={{ animationDuration: '4s' }}
+      >
+        <Image src="/assets/spider.svg" alt="Spider" width={64} height={192} unoptimized className="w-12 sm:w-16 h-48 object-contain" />
       </div>
 
-      {/* Navbar / Header */}
-      <header className="relative z-10 w-full p-6 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          {/* GDG Logo Placeholder - Replace with actual SVG if available or keep this styled text */}
-          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/20">
-            <div className="flex gap-1">
-              <div className="w-2 h-2 rounded-full bg-[#4285F4]"></div>
-              <div className="w-2 h-2 rounded-full bg-[#EA4335]"></div>
-              <div className="w-2 h-2 rounded-full bg-[#FBBC05]"></div>
-              <div className="w-2 h-2 rounded-full bg-[#34A853]"></div>
+      {/* Official Main Website Navbar & Announcement Marquee */}
+      <Navbar />
+
+      {/* Main Content Area */}
+      <main className="flex-grow max-w-6xl w-full mx-auto px-4 sm:px-6 pt-32 sm:pt-40 pb-12 space-y-10 relative z-10">
+        {/* Hero Section styled exactly like the screenshot */}
+        <div className="text-center space-y-5 max-w-3xl mx-auto pt-2">
+          {/* Kicker Pill Badge (Matches Screenshot) with Cute Bat Icon */}
+          <div className="inline-flex items-center gap-2 px-4 sm:px-5 py-1.5 rounded-full border-2 border-black bg-white shadow-[3px_3px_0_0_#000] relative">
+            <div className="w-5 h-5 rounded-full border border-black/20 bg-[#4285F4]/15 text-[#4285F4] flex items-center justify-center">
+              {/* <Sparkles className="w-3.5 h-3.5 stroke-[2.5]" /> */}
             </div>
-            <span className="text-white font-bold tracking-wide text-sm">GDG Cloud Motihari</span>
+            <span className="font-black text-xs uppercase tracking-[0.08em] text-[#111]">
+              Official Event Credentials & Stages
+            </span>
+            {/* Little Bat Fluttering */}
+            <Image
+              src="/assets/bat.svg"
+              alt="Bat"
+              width={28}
+              height={20}
+              unoptimized
+              className="w-7 h-5 absolute -top-3.5 -right-5 pointer-events-none select-none transform rotate-12"
+            />
           </div>
+
+          {/* Heading with Yellow Capsule Pill (Exact Screenshot Match) */}
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black uppercase tracking-tight text-[#111] leading-[1.1] sm:leading-[1.15] flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
+            <span>Download Your</span>
+            <span className="inline-block px-6 sm:px-10 py-1 sm:py-2.5 rounded-full border-[3px] sm:border-4 border-black bg-[#FBBC05] text-[#111] shadow-[4px_4px_0_0_#000] sm:shadow-[6px_6px_0_0_#000] transform -rotate-1 hover:rotate-0 transition-all select-none">
+              Certificate
+            </span>
+          </h1>
+
+          {/* Subtitle (Exact layout & font from Screenshot) */}
+          <p className="text-sm sm:text-base font-medium text-[#444] leading-relaxed max-w-2xl mx-auto">
+            Whether you attended technical sessions, hands-on workshops, or networked with developers — verify your check-in and claim the official DevFest Ranchi 2026 track credential that fits your achievements.
+          </p>
         </div>
-      </header>
 
-      <main className="relative z-10 flex-grow flex flex-col items-center justify-center p-4">
+        {/* Neo-Brutalist Main Card & Search */}
+        <div className="max-w-2xl mx-auto relative">
+          {/* Flying Bat Accent on Card Corner */}
+          <Image
+            src="/assets/bat.svg"
+            alt=""
+            width={40}
+            height={28}
+            unoptimized
+            className="w-10 h-7 absolute -top-5 -left-4 pointer-events-none select-none z-20 transform -rotate-12"
+          />
 
-        <div className="w-full max-w-4xl mx-auto grid md:grid-cols-2 gap-12 items-center">
 
-          {/* Left Column: Text */}
-          <div className="text-center md:text-left space-y-6 animate-in fade-in slide-in-from-left-8 duration-700">
-            <h1 className="text-5xl md:text-7xl font-black text-white tracking-tight leading-tight">
-              Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4285F4] to-[#34A853]">Certificate</span><br />
-              Is Ready
-            </h1>
-            <p className="text-lg text-gray-200 max-w-lg mx-auto md:mx-0 leading-relaxed">
-              Thank you for participating in our event. Enter your registered email address to download your official certificate of participation.
-            </p>
-          </div>
+          <div className="rounded-[24px] sm:rounded-[28px] border-[3px] border-black bg-white p-6 sm:p-8 shadow-[6px_6px_0_0_#000] space-y-6 relative overflow-hidden">
+            {/* Step & Status Bar */}
+            <div className="flex items-center justify-between pb-3.5 border-b-2 border-black/10">
+              <span className="text-xs font-black uppercase text-[#4285F4] tracking-[0.08em] flex items-center gap-1.5">
+                <span>STEP 1 — VERIFY TICKET ORDER ID</span>
+              </span>
+              <span className="text-[10.5px] font-bold px-2.5 py-0.5 rounded-full border border-black bg-[#E6F4EA] text-[#137333] flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" />
+                Verified Attendee
+              </span>
+            </div>
 
-          {/* Right Column: Form */}
-          <div className="w-full max-w-md mx-auto bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8 animate-in fade-in slide-in-from-right-8 duration-1000 delay-100">
-            <form onSubmit={handleSearch} className="space-y-6">
-              <div>
-                <label htmlFor="ticketId" className="block text-sm font-medium text-gray-200 mb-2 ml-1">
+            {/* Card Heading */}
+            <div className="space-y-1">
+              <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-[#111]">
+                Find Your Official Credential
+              </h2>
+              <p className="text-xs sm:text-sm font-semibold text-[#555] leading-relaxed">
+                Enter your Ticket Order ID from your confirmation email or badge (e.g.{' '}
+                <span className="font-mono font-bold text-[#111]">GOOGE252748058</span>).
+              </p>
+            </div>
+
+            {/* Search Form */}
+            <form onSubmit={handleSearch} className="space-y-4">
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="ticketIdInput"
+                  className="block text-xs font-black uppercase tracking-wider text-[#111]"
+                >
                   Ticket Order ID
                 </label>
-                <div className="relative group">
+                <div className="relative">
                   <input
+                    id="ticketIdInput"
                     type="text"
-                    id="ticketId"
                     value={ticketId}
-                    onChange={(e) => setTicketId(e.target.value)}
-                    placeholder="e.g. GOOGE25273XXXX"
-                    className="w-full pl-11 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl focus:ring-2 focus:ring-[#4285F4] focus:border-transparent transition-all outline-none text-white placeholder-gray-400 group-hover:bg-white/10"
+                    onChange={(e) => setTicketId(e.target.value.toUpperCase().replace(/\s+/g, ''))}
+                    placeholder="e.g. GOOGE252748058"
+                    className="w-full h-12 pl-11 pr-4 rounded-xl border-2 border-black bg-white font-mono text-sm font-bold text-[#111] placeholder:text-[#999] shadow-[2.5px_2.5px_0_0_#000] focus:border-[#4285F4] focus:shadow-[3px_3px_0_0_#4285F4] outline-none transition-all uppercase"
                     required
                   />
-                  <Search className="w-5 h-5 text-gray-400 absolute left-4 top-4 group-focus-within:text-[#4285F4] transition-colors" />
+                  <Search className="w-5 h-5 text-black absolute left-3.5 top-3.5 pointer-events-none" />
                 </div>
               </div>
 
+              {/* Neo-Brutalist Submit Button */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-white text-gray-900 py-4 rounded-2xl font-bold hover:bg-gray-100 transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3.5 rounded-full bg-[#4285F4] hover:bg-[#1a73e8] text-white font-black text-sm uppercase tracking-wider border-2 border-black shadow-[3.5px_3.5px_0_0_#000] hover:shadow-[1.5px_1.5px_0_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-y-[3.5px] active:shadow-none transition-all cursor-pointer select-none disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Searching...
+                    <Loader2 className="w-4 h-4 animate-spin stroke-[3]" />
+                    <span>Verifying Credential...</span>
                   </>
                 ) : (
                   <>
-                    Find Certificate
-                    <Sparkles className="w-4 h-4 text-[#FBBC05]" />
+                    {/* <Sparkles className="w-4 h-4 text-[#FBBC05]" /> */}
+                    <span>Generate & View Certificate</span>
                   </>
                 )}
               </button>
             </form>
 
-            {/* Results */}
-            <div className="mt-8 min-h-[100px]">
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
-                  <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
-                  <p className="text-sm text-red-200">{error}</p>
+
+            {/* Error Notification */}
+            {error && (
+              <div className="rounded-xl border-2 border-black bg-[#FCE8E6] p-4 text-[#111] shadow-[3px_3px_0_0_#000] space-y-1">
+                <div className="flex items-center gap-2 text-[#C5221F] font-black text-xs uppercase tracking-wider">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>Ticket Not Found</span>
                 </div>
-              )}
+                <p className="text-xs font-semibold text-[#444] leading-relaxed pl-6">
+                  {error}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
 
-              {downloadUrl && (
-                <div className="bg-green-500/10 border border-green-500/20 p-6 rounded-2xl text-center animate-in fade-in slide-in-from-top-2">
-                  <div className="w-14 h-14 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-green-500/20">
-                    <CheckCircle className="w-8 h-8" />
+        {/* Certificate Found & Live Preview Section */}
+        {downloadUrl && (
+          <div ref={previewRef} className="max-w-4xl mx-auto space-y-6">
+            {/* Verification Badge Card */}
+            <div className="rounded-[24px] sm:rounded-[28px] border-[3px] border-black bg-white p-6 sm:p-8 shadow-[6px_6px_0_0_#000] space-y-5 relative">
+              {/* Bat accent on verified card */}
+              <Image
+                src="/assets/bat.svg"
+                alt=""
+                width={36}
+                height={24}
+                unoptimized
+                className="w-9 h-6 absolute top-4 right-6 pointer-events-none select-none opacity-80"
+              />
+
+
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b-2 border-black/10">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-full border-2 border-black bg-[#34A853] text-white flex items-center justify-center font-black shadow-[2px_2px_0_0_#000]">
+                    <CheckCircle2 className="w-6 h-6 stroke-[2.5]" />
                   </div>
-                  <h3 className="text-lg font-bold text-white mb-1">Certificate Found!</h3>
-                  <p className="text-gray-300 text-sm mb-6">
-                    Ready for <span className="font-semibold text-white">{attendeeName}</span>
-                  </p>
+                  <div>
+                    <span className="text-[11px] font-black uppercase text-[#34A853] tracking-wider block">
+                      VERIFICATION SUCCESSFUL
+                    </span>
+                    <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-[#111]">
+                      {attendeeName || 'Verified Attendee'}
+                    </h3>
+                  </div>
+                </div>
 
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full border border-black bg-[#E6F4EA] text-[#137333] font-mono text-xs font-bold shadow-[1.5px_1.5px_0_0_#000]">
+                    {verifiedTicketId}
+                  </span>
+                  <Link
+                    href={`/verify/${encodeURIComponent(verifiedTicketId)}`}
+                    target="_blank"
+                    className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-black bg-white hover:bg-[#FFF8E7] text-[#111] font-black text-xs uppercase tracking-wider shadow-[1.5px_1.5px_0_0_#000] transition-all"
+                  >
+                    <span>Audit Page</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </Link>
+                </div>
+              </div>
+
+              {/* Verified Details Metadata Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="rounded-xl border border-black/20 bg-[#FFF8E7] p-3">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-[#555] block">
+                    Event
+                  </span>
+                  <span className="text-xs font-black text-[#111] block mt-0.5">
+                    DevFest Ranchi 2026
+                  </span>
+                </div>
+                <div className="rounded-xl border border-black/20 bg-[#FFF8E7] p-3">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-[#555] block">
+                    Organizer
+                  </span>
+                  <span className="text-xs font-black text-[#111] block mt-0.5">
+                    GDG Ranchi Community
+                  </span>
+                </div>
+                <div className="rounded-xl border border-black/20 bg-[#FFF8E7] p-3">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-[#555] block">
+                    Credential Status
+                  </span>
+                  <span className="text-xs font-black text-[#34A853] flex items-center gap-1 mt-0.5">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> 100% Authentic
+                  </span>
+                </div>
+              </div>
+
+              {/* Certificate Preview Container */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-[#111] flex items-center gap-1.5">
+                    <Award className="w-4 h-4 text-[#4285F4]" />
+                    Official Certificate Preview
+                  </span>
+                  <span className="text-[11px] font-bold text-[#666]">
+                    Interactive Live PDF Document
+                  </span>
+                </div>
+
+                {/* Neo-Brutalist Frame around Preview */}
+                <div className="rounded-[20px] border-[3px] border-black bg-white shadow-[4px_4px_0_0_#000] overflow-hidden">
+                  {/* Brutalist Title Bar */}
+                  <div className="bg-[#FFFBF0] border-b-2 border-black px-4 py-2.5 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded-full border border-black bg-[#EA4335]" />
+                      <div className="w-3 h-3 rounded-full border border-black bg-[#FBBC05]" />
+                      <div className="w-3 h-3 rounded-full border border-black bg-[#34A853]" />
+                    </div>
+                    <span className="font-mono text-[11px] font-black uppercase tracking-wider text-[#111]">
+                      DEVFEST_RANCHI_2026_{attendeeName.replace(/\s+/g, '_') || 'CERTIFICATE'}.PDF
+                    </span>
+                    <a
+                      href={downloadUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-black uppercase text-[#4285F4] hover:underline flex items-center gap-1"
+                    >
+                      <span>Pop-Out</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+
+                  {/* PDF Viewer Frame */}
+                  <div className="relative w-full aspect-[4/3] sm:aspect-[1.414/1] max-h-[520px] bg-[#EFEFEF]">
+                    <iframe
+                      src={`${downloadUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                      title="DevFest Ranchi Certificate Preview"
+                      className="w-full h-full border-0"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Download & Action Buttons Bar */}
+              <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Primary Download Button: PDF */}
                   <a
                     href={downloadUrl}
-                    download={`GDG_Certificate_${attendeeName.replace(/\s+/g, '_') || '2025'}.pdf`}
-                    className="inline-flex items-center gap-2 bg-[#34A853] text-white px-8 py-3 rounded-xl font-bold hover:bg-[#2d9147] transition-all transform hover:scale-105 shadow-lg hover:shadow-green-500/30 w-full justify-center"
+                    download={`DevFest_Ranchi_2026_Certificate_${attendeeName.trim().replace(/\s+/g, '_') || 'Attendee'}.pdf`}
+                    className="inline-flex items-center justify-center gap-2.5 px-6 sm:px-7 py-3.5 rounded-full bg-[#34A853] hover:bg-[#2d9147] text-white font-black text-xs sm:text-sm uppercase tracking-wider border-2 border-black shadow-[3.5px_3.5px_0_0_#000] hover:shadow-[1.5px_1.5px_0_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-y-[3.5px] active:shadow-none transition-all cursor-pointer select-none"
                   >
-                    <Download className="w-5 h-5" />
-                    Download PDF
+                    <Download className="w-4 h-4 stroke-[2.5]" />
+                    <span>Download PDF (Official)</span>
                   </a>
-                </div>
-              )}
 
-              {!error && !downloadUrl && !loading && (
-                <div className="text-center text-gray-400 text-sm py-4">
-                  Enter your Ticket ID to get started
+                  {/* Secondary Download Button: PNG */}
+                  <button
+                    type="button"
+                    onClick={handleDownloadPng}
+                    disabled={downloadingPng}
+                    className="inline-flex items-center justify-center gap-2.5 px-6 sm:px-7 py-3.5 rounded-full bg-[#4285F4] hover:bg-[#1a73e8] text-white font-black text-xs sm:text-sm uppercase tracking-wider border-2 border-black shadow-[3.5px_3.5px_0_0_#000] hover:shadow-[1.5px_1.5px_0_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-y-[3.5px] active:shadow-none transition-all cursor-pointer select-none disabled:opacity-60"
+                  >
+                    {downloadingPng ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin stroke-[2.5]" />
+                        <span>Rendering PNG...</span>
+                      </>
+                    ) : (
+                      <>
+                        <ImageIcon className="w-4 h-4 stroke-[2.5]" />
+                        <span>Download PNG (HD Image)</span>
+                      </>
+                    )}
+                  </button>
                 </div>
-              )}
+
+                {/* Print / Open Button */}
+                <a
+                  href={downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-full bg-white hover:bg-[#FFF8E7] text-[#111] font-black text-xs sm:text-sm uppercase tracking-wider border-2 border-black shadow-[2.5px_2.5px_0_0_#000] hover:shadow-[1px_1px_0_0_#000] hover:translate-x-[1.5px] hover:translate-y-[1.5px] active:translate-y-[2.5px] transition-all cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Print Certificate</span>
+                </a>
+              </div>
             </div>
+          </div>
+        )}
+
+        {/* Official Credential Challenge Badge */}
+        <div className="max-w-2xl mx-auto rounded-xl border border-black/15 bg-blue-50/60 p-3.5 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-[#3B4A60] shadow-[2px_2px_0_0_#000]">
+          <span>
+            Official Credential Issued by: <strong>Google Developer Groups Ranchi</strong>
+          </span>
+          <span className="px-2.5 py-0.5 rounded-md bg-white border border-black/20 text-black font-black uppercase text-[10px]">
+            100% Cryptographically Verified
+          </span>
+        </div>
+
+        {/* 3 Neo-Brutalist Feature Information Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+          {/* Feature Card 1: Blue */}
+          <div className="rounded-[24px] border-[3px] border-black bg-white p-6 shadow-[5px_5px_0_0_#000] space-y-3 relative overflow-hidden">
+            <div className="w-10 h-10 rounded-full border-2 border-black bg-[#4285F4] text-white flex items-center justify-center font-black shadow-[2px_2px_0_0_#000]">
+              <ShieldCheck className="w-5 h-5 stroke-[2.5]" />
+            </div>
+            <h3 className="font-black text-base uppercase tracking-tight text-[#111]">
+              Live QR Verification
+            </h3>
+            <p className="text-xs font-semibold text-[#555] leading-relaxed">
+              Every certificate has a unique cryptographic QR code linking directly to the live GDG Ranchi attendee registry for instant validation.
+            </p>
+          </div>
+
+          {/* Feature Card 2: Yellow */}
+          <div className="rounded-[24px] border-[3px] border-black bg-white p-6 shadow-[5px_5px_0_0_#000] space-y-3 relative overflow-hidden">
+            <div className="w-10 h-10 rounded-full border-2 border-black bg-[#FBBC05] text-[#111] flex items-center justify-center font-black shadow-[2px_2px_0_0_#000]">
+              <FileText className="w-5 h-5 stroke-[2.5]" />
+            </div>
+            <h3 className="font-black text-base uppercase tracking-tight text-[#111]">
+              Print & Portfolio Ready
+            </h3>
+            <p className="text-xs font-semibold text-[#555] leading-relaxed">
+              Export high-resolution PDF or crisp PNG images calibrated for physical framing, LinkedIn sharing, and professional portfolios.
+            </p>
+          </div>
+
+          {/* Feature Card 3: Green */}
+          <div className="rounded-[24px] border-[3px] border-black bg-white p-6 shadow-[5px_5px_0_0_#000] space-y-3 relative overflow-hidden">
+            <div className="w-10 h-10 rounded-full border-2 border-black bg-[#34A853] text-white flex items-center justify-center font-black shadow-[2px_2px_0_0_#000]">
+              <Award className="w-5 h-5 stroke-[2.5]" />
+            </div>
+            <h3 className="font-black text-base uppercase tracking-tight text-[#111]">
+              Official GDG Credential
+            </h3>
+            <p className="text-xs font-semibold text-[#555] leading-relaxed">
+              Officially recognized and awarded by Google Developer Groups Ranchi to honor active participation in DevFest Ranchi 2026.
+            </p>
           </div>
         </div>
       </main>
 
-      <footer className="relative z-10 p-6 text-center">
-        <p className="text-sm text-gray-400">© 2025 GDG Cloud Motihari. All rights reserved.</p>
-      </footer>
+      {/* Halloween Landscape Skyline Footer Banner from @assets */}
+      <div className="w-full relative overflow-hidden pointer-events-none select-none -mb-1 mt-10">
+        <Image
+          src="/assets/halloween-footer.png"
+          alt="DevFest Ranchi Halloween Skyline"
+          width={2097}
+          height={750}
+          unoptimized
+          className="w-full h-auto max-h-36 sm:max-h-52 object-cover object-bottom"
+        />
+      </div>
+
+      {/* Official Main Website Footer */}
+      <Footer />
     </div>
   );
 }
