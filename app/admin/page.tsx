@@ -20,6 +20,10 @@ import {
   ExternalLink,
   Database,
   Activity,
+  Eye,
+  FileSpreadsheet,
+  CheckCircle2,
+  X,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -34,6 +38,24 @@ interface Attendee {
 interface TemplateInfo {
   isCustom: boolean;
   sizeBytes: number;
+}
+
+interface SpreadsheetPreviewRow {
+  ticketId: string;
+  name: string;
+  isNew: boolean;
+  existingName?: string | null;
+}
+
+interface SpreadsheetPreviewData {
+  fileName: string;
+  fileSizeBytes: number;
+  totalCount: number;
+  newCount: number;
+  updateCount: number;
+  skippedCount: number;
+  previewRows: SpreadsheetPreviewRow[];
+  allRows: Array<{ ticketId: string; name: string }>;
 }
 
 interface DbStatus {
@@ -54,9 +76,13 @@ export default function AdminPage() {
   const [templateMessage, setTemplateMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [templateInfo, setTemplateInfo] = useState<TemplateInfo | null>(null);
 
-  // Spreadsheet upload state
+  // Spreadsheet upload & preview states
   const [uploadingSpreadsheet, setUploadingSpreadsheet] = useState(false);
   const [spreadsheetMessage, setSpreadsheetMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [spreadsheetPreview, setSpreadsheetPreview] = useState<SpreadsheetPreviewData | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [committingImport, setCommittingImport] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // Manual single attendee entry states
   const [manualName, setManualName] = useState('');
@@ -187,42 +213,102 @@ export default function AdminPage() {
     }
   };
 
-  // Handle Spreadsheet Bulk Upload
-  const handleSpreadsheetUpload = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setUploadingSpreadsheet(true);
+  // Analyze & Preview Spreadsheet
+  const handleAnalyzeSpreadsheet = async (file: File) => {
+    if (!file || file.size === 0) return;
+    setSelectedFile(file);
+    setLoadingPreview(true);
+    setSpreadsheetMessage(null);
+    setSpreadsheetPreview(null);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/api/upload?preview=true', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (res.ok && data.preview) {
+        setSpreadsheetPreview(data);
+      } else {
+        setSpreadsheetMessage({
+          type: 'error',
+          text: data.error || 'Failed to analyze spreadsheet.',
+        });
+      }
+    } catch {
+      setSpreadsheetMessage({
+        type: 'error',
+        text: 'Network error while analyzing spreadsheet.',
+      });
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
+  // Confirm and Commit the Previewed Attendees
+  const handleConfirmImport = async () => {
+    if (!spreadsheetPreview || spreadsheetPreview.allRows.length === 0) return;
+    setCommittingImport(true);
     setSpreadsheetMessage(null);
 
+    try {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'commit',
+          entries: spreadsheetPreview.allRows,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setSpreadsheetMessage({
+          type: 'success',
+          text: data.message || `Successfully imported ${data.count} attendees!`,
+        });
+        setSpreadsheetPreview(null);
+        setSelectedFile(null);
+        fetchAttendees();
+      } else {
+        setSpreadsheetMessage({
+          type: 'error',
+          text: data.error || 'Failed to commit attendees.',
+        });
+      }
+    } catch {
+      setSpreadsheetMessage({
+        type: 'error',
+        text: 'Network error while committing spreadsheet import.',
+      });
+    } finally {
+      setCommittingImport(false);
+    }
+  };
+
+  const handleCancelPreview = () => {
+    setSpreadsheetPreview(null);
+    setSelectedFile(null);
+  };
+
+  // Handle Spreadsheet Bulk Upload (Direct fallback)
+  const handleSpreadsheetUpload = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     const form = e.currentTarget;
     const formData = new FormData(form);
     const file = formData.get('file') as File | null;
 
     if (!file || file.size === 0) {
       setSpreadsheetMessage({ type: 'error', text: 'Please select an Excel (.xlsx, .xls) or CSV file.' });
-      setUploadingSpreadsheet(false);
       return;
     }
 
-    try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        setSpreadsheetMessage({ type: 'success', text: data.message });
-        form.reset();
-        fetchAttendees();
-      } else {
-        setSpreadsheetMessage({ type: 'error', text: data.error || 'Failed to process spreadsheet.' });
-      }
-    } catch {
-      setSpreadsheetMessage({ type: 'error', text: 'An unexpected error occurred during spreadsheet import.' });
-    } finally {
-      setUploadingSpreadsheet(false);
-    }
+    // Trigger preview first
+    handleAnalyzeSpreadsheet(file);
   };
 
   // Handle single attendee manual entry
@@ -690,55 +776,209 @@ export default function AdminPage() {
               )}
             </div>
 
-            {/* Card B: Bulk Spreadsheet Attendees Upload */}
+            {/* Card B: Bulk Spreadsheet Attendees Upload with Live Preview */}
             <div className="rounded-[24px] border-[3px] border-black bg-white p-6 sm:p-7 shadow-[6px_6px_0_0_#000] space-y-5">
-              <div className="pb-3 border-b-2 border-black/10">
-                <span className="text-[10px] font-black uppercase tracking-wider bg-[#4285F4] text-white px-2.5 py-0.5 rounded-full border border-black shadow-[1px_1px_0_0_#000] inline-block mb-1">
-                  ATTENDEE RECORDS
-                </span>
-                <h2 className="text-lg sm:text-xl font-black uppercase tracking-tight text-[#111]">
-                  Batch Spreadsheet Import
-                </h2>
+              <div className="pb-3 border-b-2 border-black/10 flex items-start justify-between gap-3">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-[#4285F4] text-white px-2.5 py-0.5 rounded-full border border-black shadow-[1px_1px_0_0_#000] inline-block mb-1">
+                    ATTENDEE RECORDS
+                  </span>
+                  <h2 className="text-lg sm:text-xl font-black uppercase tracking-tight text-[#111]">
+                    Batch Spreadsheet Import
+                  </h2>
+                </div>
+
+                {spreadsheetPreview && (
+                  <span className="px-2.5 py-1 rounded-full border border-black bg-[#E6F4EA] text-[#137333] font-black text-[10px] uppercase tracking-wider shadow-[1px_1px_0_0_#000]">
+                    Preview Mode
+                  </span>
+                )}
               </div>
 
               <p className="text-xs font-semibold text-[#555] leading-relaxed">
-                Upload your event attendee check-in roster. Supports Excel (.xlsx, .xls) and CSV with Column 1 = Ticket Order ID, Column 2 = Full Name.
+                Upload your event attendee check-in roster. Supports Excel (.xlsx, .xls) and CSV with Column 1 = Ticket Order ID, Column 2 = Full Name. A preview with exact record counts will appear before saving.
               </p>
 
-              <form onSubmit={handleSpreadsheetUpload} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-black uppercase tracking-wider text-[#111]">
-                    Select Spreadsheet (.xlsx, .xls, .csv)
-                  </label>
-                  <div className="rounded-xl border-2 border-black bg-[#FFF8E7] p-3.5 shadow-[2px_2px_0_0_#000]">
-                    <input
-                      type="file"
-                      name="file"
-                      accept=".xlsx, .xls, .csv"
-                      required
-                      className="block w-full text-xs font-mono font-bold text-[#111] file:mr-3 file:py-1.5 file:px-3.5 file:rounded-full file:border-2 file:border-black file:text-xs file:font-black file:uppercase file:bg-[#4285F4] file:text-white file:shadow-[2px_2px_0_0_#000] hover:file:bg-[#1a73e8] cursor-pointer"
-                    />
+              {/* State 1: File Selection & Analysis */}
+              {!spreadsheetPreview && (
+                <form onSubmit={handleSpreadsheetUpload} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-black uppercase tracking-wider text-[#111]">
+                      Select Spreadsheet (.xlsx, .xls, .csv)
+                    </label>
+                    <div className="rounded-xl border-2 border-black bg-[#FFF8E7] p-3.5 shadow-[2px_2px_0_0_#000]">
+                      <input
+                        type="file"
+                        name="file"
+                        accept=".xlsx, .xls, .csv"
+                        required
+                        disabled={loadingPreview}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleAnalyzeSpreadsheet(file);
+                        }}
+                        className="block w-full text-xs font-mono font-bold text-[#111] file:mr-3 file:py-1.5 file:px-3.5 file:rounded-full file:border-2 file:border-black file:text-xs file:font-black file:uppercase file:bg-[#4285F4] file:text-white file:shadow-[2px_2px_0_0_#000] hover:file:bg-[#1a73e8] cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loadingPreview}
+                    className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-[#4285F4] hover:bg-[#1a73e8] text-white font-black text-xs uppercase tracking-wider border-2 border-black shadow-[3px_3px_0_0_#000] hover:shadow-[1.5px_1.5px_0_0_#000] hover:translate-x-[1.5px] hover:translate-y-[1.5px] active:translate-y-[3px] transition-all cursor-pointer disabled:opacity-60"
+                  >
+                    {loadingPreview ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin stroke-[2.5]" />
+                        <span>Analyzing Spreadsheet & Calculating Counts...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="w-4 h-4" />
+                        <span>Analyze & Preview Attendees</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+
+              {/* State 2: Active Preview with Counts & Data Table */}
+              {spreadsheetPreview && (
+                <div className="space-y-4 pt-1">
+                  {/* File Info Header */}
+                  <div className="flex items-center justify-between p-3 rounded-xl border-2 border-black bg-[#FFFBF0] shadow-[2px_2px_0_0_#000]">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <FileSpreadsheet className="w-5 h-5 text-[#4285F4] flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-[#111] truncate">
+                          {spreadsheetPreview.fileName}
+                        </p>
+                        <p className="text-[10px] font-mono text-[#666]">
+                          {(spreadsheetPreview.fileSizeBytes / 1024).toFixed(1)} KB • Ready for import
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleCancelPreview}
+                      className="p-1.5 rounded-full border border-black bg-white hover:bg-[#FCE8E6] text-black hover:text-[#EA4335] shadow-[1px_1px_0_0_#000] transition-all cursor-pointer flex-shrink-0"
+                      title="Discard and choose another file"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Count Metrics Badges Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="p-2.5 rounded-xl border-2 border-black bg-[#E8F0FE] text-center shadow-[1.5px_1.5px_0_0_#000]">
+                      <p className="text-[9px] font-black uppercase tracking-wider text-[#1967D2]">
+                        Total To Import
+                      </p>
+                      <p className="text-lg font-black text-[#1967D2]">
+                        {spreadsheetPreview.totalCount}
+                      </p>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl border-2 border-black bg-[#E6F4EA] text-center shadow-[1.5px_1.5px_0_0_#000]">
+                      <p className="text-[9px] font-black uppercase tracking-wider text-[#137333]">
+                        New Attendees
+                      </p>
+                      <p className="text-lg font-black text-[#137333]">
+                        +{spreadsheetPreview.newCount}
+                      </p>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl border-2 border-black bg-[#FEF7E0] text-center shadow-[1.5px_1.5px_0_0_#000]">
+                      <p className="text-[9px] font-black uppercase tracking-wider text-[#B06000]">
+                        To Update
+                      </p>
+                      <p className="text-lg font-black text-[#B06000]">
+                        {spreadsheetPreview.updateCount}
+                      </p>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl border-2 border-black bg-[#F1F3F4] text-center shadow-[1.5px_1.5px_0_0_#000]">
+                      <p className="text-[9px] font-black uppercase tracking-wider text-[#5F6368]">
+                        Headers/Empty
+                      </p>
+                      <p className="text-lg font-black text-[#5F6368]">
+                        {spreadsheetPreview.skippedCount}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Preview Table */}
+                  <div className="rounded-xl border-2 border-black bg-white overflow-hidden shadow-[2px_2px_0_0_#000]">
+                    <div className="px-3.5 py-2 bg-[#FFF8E7] border-b-2 border-black flex items-center justify-between text-[11px] font-black uppercase text-[#111]">
+                      <span>Data Preview (First {Math.min(30, spreadsheetPreview.previewRows.length)} rows)</span>
+                      <span className="font-mono text-[10px] text-[#666]">
+                        {spreadsheetPreview.totalCount} total entries
+                      </span>
+                    </div>
+
+                    <div className="max-h-[220px] overflow-y-auto divide-y divide-black/10 text-xs">
+                      {spreadsheetPreview.previewRows.map((row, idx) => (
+                        <div key={idx} className="px-3.5 py-2 flex items-center justify-between hover:bg-[#FFFBF0] transition-colors gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-mono text-[10px] text-[#888] w-5 text-right flex-shrink-0">
+                              {idx + 1}.
+                            </span>
+                            <span className="font-mono font-bold text-[#4285F4] text-xs flex-shrink-0">
+                              {row.ticketId}
+                            </span>
+                            <span className="font-black text-[#111] truncate text-xs">
+                              {row.name}
+                            </span>
+                          </div>
+
+                          <div className="flex-shrink-0">
+                            {row.isNew ? (
+                              <span className="px-2 py-0.5 rounded-full bg-[#E6F4EA] text-[#137333] border border-[#137333]/40 text-[9px] font-black uppercase tracking-wider">
+                                + New
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full bg-[#FEF7E0] text-[#B06000] border border-[#B06000]/40 text-[9px] font-black uppercase tracking-wider" title={row.existingName ? `Current name: ${row.existingName}` : 'Already exists'}>
+                                ↻ Update
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Action Buttons: Confirm Import or Cancel */}
+                  <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleConfirmImport}
+                      disabled={committingImport}
+                      className="w-full sm:flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-[#34A853] hover:bg-[#2d9147] text-white font-black text-xs uppercase tracking-wider border-2 border-black shadow-[3px_3px_0_0_#000] hover:shadow-[1.5px_1.5px_0_0_#000] hover:translate-x-[1.5px] hover:translate-y-[1.5px] active:translate-y-[3px] transition-all cursor-pointer disabled:opacity-60"
+                    >
+                      {committingImport ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin stroke-[2.5]" />
+                          <span>Importing {spreadsheetPreview.totalCount} Attendees...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+                          <span>Confirm & Import ({spreadsheetPreview.totalCount} Records)</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCancelPreview}
+                      disabled={committingImport}
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-full bg-white hover:bg-[#FCE8E6] text-[#EA4335] font-black text-xs uppercase tracking-wider border-2 border-black shadow-[2px_2px_0_0_#000] transition-all cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Cancel</span>
+                    </button>
                   </div>
                 </div>
-
-                <button
-                  type="submit"
-                  disabled={uploadingSpreadsheet}
-                  className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-[#4285F4] hover:bg-[#1a73e8] text-white font-black text-xs uppercase tracking-wider border-2 border-black shadow-[3px_3px_0_0_#000] hover:shadow-[1.5px_1.5px_0_0_#000] hover:translate-x-[1.5px] hover:translate-y-[1.5px] active:translate-y-[3px] transition-all cursor-pointer disabled:opacity-60"
-                >
-                  {uploadingSpreadsheet ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin stroke-[2.5]" />
-                      <span>Syncing Attendees...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4" />
-                      <span>Upload & Sync Attendees</span>
-                    </>
-                  )}
-                </button>
-              </form>
+              )}
 
               {spreadsheetMessage && (
                 <div

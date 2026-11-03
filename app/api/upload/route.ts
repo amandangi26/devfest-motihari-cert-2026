@@ -30,9 +30,65 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const contentType = req.headers.get('content-type') || '';
+
+    // 1. JSON Payload: Confirmed Commit of Pre-validated Attendee Rows
+    if (contentType.includes('application/json')) {
+      const body = await req.json();
+      if (body.action === 'commit' && Array.isArray(body.entries)) {
+        const entries: { ticketId: string; name: string }[] = body.entries;
+        if (entries.length === 0) {
+          return NextResponse.json({ error: 'No attendee entries provided to import.' }, { status: 400 });
+        }
+
+        // Determine which are new and which are updates for reporting
+        const allTicketIds = entries.map((e) => e.ticketId);
+        const existingAttendees = await prisma.attendee.findMany({
+          where: { ticketId: { in: allTicketIds } },
+          select: { ticketId: true },
+        });
+        const existingSet = new Set(existingAttendees.map((a) => a.ticketId));
+
+        let newCount = 0;
+        let updateCount = 0;
+        entries.forEach((e) => {
+          if (existingSet.has(e.ticketId)) updateCount++;
+          else newCount++;
+        });
+
+        // Chunked Upsert in Batches of 50
+        const BATCH_SIZE = 50;
+        let processedCount = 0;
+
+        for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+          const batch = entries.slice(i, i + BATCH_SIZE);
+          await prisma.$transaction(
+            batch.map((entry) =>
+              prisma.attendee.upsert({
+                where: { ticketId: entry.ticketId },
+                update: { name: entry.name },
+                create: { ticketId: entry.ticketId, name: entry.name },
+              })
+            )
+          );
+          processedCount += batch.length;
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: `Successfully imported ${processedCount} attendees (${newCount} new, ${updateCount} updated).`,
+          count: processedCount,
+          newCount,
+          updateCount,
+        });
+      }
+    }
+
+    // 2. FormData: File Upload (Preview or Direct)
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const template = formData.get('template') as File | null;
+    const isPreview = req.nextUrl.searchParams.get('preview') === 'true' || formData.get('preview') === 'true';
 
     const hasFile = Boolean(file && typeof file.size === 'number' && file.size > 0);
     const hasTemplate = Boolean(template && typeof template.size === 'number' && template.size > 0);
@@ -46,7 +102,7 @@ export async function POST(req: NextRequest) {
 
     const messages: string[] = [];
 
-    // 1. Process Certificate PDF Template
+    // Process Certificate PDF Template
     if (hasTemplate && template) {
       const bytes = await template.arrayBuffer();
       const buffer = Buffer.from(bytes);
@@ -86,7 +142,7 @@ export async function POST(req: NextRequest) {
       messages.push(`Certificate template updated successfully (${sizeKb} KB).`);
     }
 
-    // 2. Process Excel / CSV Attendees File
+    // Process Excel / CSV Attendees File
     if (hasFile && file) {
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
@@ -97,15 +153,22 @@ export async function POST(req: NextRequest) {
 
       // In-memory map to deduplicate records in the spreadsheet
       const attendeeMap = new Map<string, string>(); // ticketId -> formattedName
+      let skippedCount = 0;
 
       for (let i = 0; i < data.length; i++) {
         const row = data[i];
-        if (!row || row.length < 2) continue;
+        if (!row || row.length < 2) {
+          if (row && row.length > 0) skippedCount++;
+          continue;
+        }
 
         const rawTicket = row[0]?.toString().trim();
         const rawName = row[1]?.toString().trim();
 
-        if (!rawTicket || !rawName) continue;
+        if (!rawTicket || !rawName) {
+          skippedCount++;
+          continue;
+        }
 
         // Skip table headers like "Ticket ID", "Order ID", "Name", "Attendee"
         const lowerTicket = rawTicket.toLowerCase();
@@ -113,9 +176,12 @@ export async function POST(req: NextRequest) {
         if (
           lowerTicket.includes('ticket') ||
           lowerTicket.includes('order') ||
+          lowerTicket.includes('id') ||
           lowerName === 'name' ||
-          lowerName === 'attendee name'
+          lowerName.includes('attendee') ||
+          lowerName.includes('participant')
         ) {
+          skippedCount++;
           continue;
         }
 
@@ -130,6 +196,8 @@ export async function POST(req: NextRequest) {
 
         if (ticketId && formattedName) {
           attendeeMap.set(ticketId, formattedName);
+        } else {
+          skippedCount++;
         }
       }
 
@@ -146,7 +214,39 @@ export async function POST(req: NextRequest) {
           );
         }
       } else {
-        // Chunked Upsert in Batches of 50
+        // Find existing attendees in database to mark which are New vs Update
+        const allTicketIds = attendeeEntries.map((e) => e.ticketId);
+        const existingAttendees = await prisma.attendee.findMany({
+          where: { ticketId: { in: allTicketIds } },
+          select: { ticketId: true, name: true },
+        });
+        const existingMap = new Map(existingAttendees.map((a) => [a.ticketId, a.name]));
+
+        const newCount = attendeeEntries.filter((e) => !existingMap.has(e.ticketId)).length;
+        const updateCount = attendeeEntries.filter((e) => existingMap.has(e.ticketId)).length;
+
+        // IF PREVIEW REQUESTED: Return preview stats and rows WITHOUT committing to database
+        if (isPreview) {
+          return NextResponse.json({
+            success: true,
+            preview: true,
+            fileName: file.name,
+            fileSizeBytes: file.size,
+            totalCount: attendeeEntries.length,
+            newCount,
+            updateCount,
+            skippedCount,
+            previewRows: attendeeEntries.slice(0, 30).map((e) => ({
+              ticketId: e.ticketId,
+              name: e.name,
+              isNew: !existingMap.has(e.ticketId),
+              existingName: existingMap.get(e.ticketId) || null,
+            })),
+            allRows: attendeeEntries,
+          });
+        }
+
+        // DIRECT UPLOAD (no preview requested): Chunked Upsert in Batches of 50
         const BATCH_SIZE = 50;
         let processedCount = 0;
 
@@ -166,7 +266,7 @@ export async function POST(req: NextRequest) {
           processedCount += batch.length;
         }
 
-        messages.push(`Synced ${processedCount} attendees from spreadsheet.`);
+        messages.push(`Synced ${processedCount} attendees (${newCount} new, ${updateCount} updated).`);
       }
     }
 
