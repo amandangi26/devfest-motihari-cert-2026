@@ -2,7 +2,6 @@ import prisma from '@/lib/db';
 import { CheckCircle2, XCircle, ArrowLeft, ShieldCheck, Download } from 'lucide-react';
 import Link from 'next/link';
 
-
 interface PageProps {
   params: Promise<{ ticketId: string }>;
 }
@@ -44,7 +43,7 @@ export default async function VerifyPage({ params }: PageProps) {
                 GDG
               </div>
               <span className="font-black text-sm uppercase tracking-tight text-[#111]">
-                DevFest Ranchi 2026
+                GDG CLOUD MOTIHARI
               </span>
             </Link>
             <span className="px-3 py-1 rounded-full border-2 border-black bg-[#EA4335] text-white font-black text-xs uppercase tracking-wider shadow-[2px_2px_0_0_#000]">
@@ -76,7 +75,7 @@ export default async function VerifyPage({ params }: PageProps) {
 
             <div className="rounded-xl border-2 border-black bg-[#FFF8E7] p-4 text-xs font-semibold text-[#666] text-left">
               <p className="font-bold text-[#111] uppercase tracking-wide mb-1">Notice:</p>
-              Only attendees with confirmed check-in at DevFest Ranchi 2026 receive authenticated certificates.
+              Only attendees with confirmed check-in at GDG CLOUD MOTIHARI receive authenticated certificates.
             </div>
 
             <div className="pt-2">
@@ -105,7 +104,7 @@ export default async function VerifyPage({ params }: PageProps) {
               GDG
             </div>
             <span className="font-black text-sm uppercase tracking-tight text-[#111]">
-              DevFest Ranchi 2026
+              GDG CLOUD MOTIHARI
             </span>
           </Link>
           <span className="px-3 py-1 rounded-full border-2 border-black bg-[#34A853] text-white font-black text-xs uppercase tracking-wider shadow-[2px_2px_0_0_#000]">
@@ -123,13 +122,13 @@ export default async function VerifyPage({ params }: PageProps) {
 
           <div className="space-y-1">
             <span className="text-xs font-black uppercase tracking-[0.08em] text-[#34A853] flex items-center justify-center gap-1.5">
-              <ShieldCheck className="w-4 h-4" /> OFFICIAL GDG RANCHI CREDENTIAL
+              <ShieldCheck className="w-4 h-4" /> OFFICIAL GDG CLOUD MOTIHARI CREDENTIAL
             </span>
             <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-[#111]">
               Certificate Verified
             </h1>
             <p className="text-xs sm:text-sm font-semibold text-[#555]">
-              This certificate was officially issued and verified by Google Developer Groups Ranchi.
+              This certificate was officially issued and verified by GDG CLOUD MOTIHARI.
             </p>
           </div>
 
@@ -156,7 +155,7 @@ export default async function VerifyPage({ params }: PageProps) {
                 Event / Chapter
               </p>
               <p className="text-xs font-bold text-[#111]">
-                DevFest Ranchi 2026 (GDG Ranchi)
+                GDG CLOUD MOTIHARI
               </p>
             </div>
           </div>

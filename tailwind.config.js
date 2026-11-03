@@ -13,6 +13,8 @@ module.exports = {
         gdgRed: "#EA4335",
         gdgYellow: "#FBBC05",
         gdgGreen: "#34A853",
+        motihariSand: "#FFFBF0",
+        motihariCream: "#FFF8E7",
         ranchiSand: "#FFFBF0",
         ranchiCream: "#FFF8E7",
       },

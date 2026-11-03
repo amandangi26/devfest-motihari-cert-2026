@@ -51,7 +51,7 @@ export default function LoginPage() {
               GDG
             </div>
             <span className="font-black text-sm uppercase tracking-tight text-[#111]">
-              DevFest Ranchi 2026
+              GDG CLOUD MOTIHARI
             </span>
           </Link>
           <span className="px-3 py-1 rounded-full border-2 border-black bg-[#FBBC05] text-[#111] font-black text-xs uppercase tracking-wider shadow-[2px_2px_0_0_#000]">
@@ -73,7 +73,7 @@ export default function LoginPage() {
               Admin Sign In
             </h1>
             <p className="text-xs font-semibold text-[#555]">
-              Authorized GDG Ranchi organizers only.
+              Authorized GDG CLOUD MOTIHARI organizers only.
             </p>
           </div>
 
@@ -87,7 +87,7 @@ export default function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@gdgranchi.in"
+                  placeholder="admin@gdgcloudmotihari.com"
                   className="w-full h-12 pl-11 pr-4 rounded-xl border-2 border-black bg-white font-mono text-sm font-bold text-[#111] placeholder:text-[#999] shadow-[2.5px_2.5px_0_0_#000] focus:border-[#4285F4] focus:shadow-[3px_3px_0_0_#4285F4] outline-none transition-all"
                   required
                 />

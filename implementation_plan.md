@@ -1,7 +1,7 @@
 # GDG Certificate Downloader Implementation Plan
 
 ## Goal
-Build a production-ready web app for generating and delivering event participation certificates for "GDG Cloud Motihari 2025".
+Build a production-ready web app for generating and delivering event participation certificates for "GDG Cloud Motihari 2026".
 
 ## Tech Stack
 - **Framework**: Next.js 15 (App Router)

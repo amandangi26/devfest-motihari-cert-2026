@@ -11,6 +11,11 @@ export function invalidateTemplateCache() {
   lastCacheTime = 0;
 }
 
+export function setTemplateBytes(bytes: Uint8Array) {
+  cachedTemplateBytes = bytes;
+  lastCacheTime = Date.now();
+}
+
 export async function getTemplateBytes(): Promise<Uint8Array> {
   const now = Date.now();
   if (cachedTemplateBytes && now - lastCacheTime < CACHE_TTL_MS) {
@@ -36,4 +41,37 @@ export async function getTemplateBytes(): Promise<Uint8Array> {
   cachedTemplateBytes = new Uint8Array(fileBuffer);
   lastCacheTime = now;
   return cachedTemplateBytes;
+}
+
+export async function getTemplateInfo(): Promise<{
+  isCustom: boolean;
+  sizeBytes: number;
+  updatedAt?: string;
+}> {
+  try {
+    const config = await prisma.config.findUnique({ where: { key: 'template_data' } });
+    if (config && config.value) {
+      const buffer = Buffer.from(config.value, 'base64');
+      return {
+        isCustom: true,
+        sizeBytes: buffer.length,
+      };
+    }
+  } catch {
+    // fallback check
+  }
+
+  try {
+    const defaultPath = path.join(process.cwd(), 'public', 'uploads', 'certificate_template.pdf');
+    const stat = await fs.stat(defaultPath);
+    return {
+      isCustom: false,
+      sizeBytes: stat.size,
+    };
+  } catch {
+    return {
+      isCustom: false,
+      sizeBytes: 0,
+    };
+  }
 }

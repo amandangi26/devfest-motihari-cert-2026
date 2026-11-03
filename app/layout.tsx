@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "DevFest Ranchi 2026 - Certificate Portal",
-  description: "Download your official DevFest Ranchi 2026 Certificate of Participation verified by Google Developer Groups Ranchi.",
+  title: "GDG CLOUD MOTIHARI - Certificate Portal",
+  description: "Download and verify your official Certificate of Participation from GDG CLOUD MOTIHARI.",
 };
 
 export default function RootLayout({

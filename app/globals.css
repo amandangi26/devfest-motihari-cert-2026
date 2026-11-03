@@ -11,6 +11,10 @@
   --color-gdgYellow: #FBBC05;
   --color-gdg-green: #34A853;
   --color-gdgGreen: #34A853;
+  --color-motihari-sand: #FFFBF0;
+  --color-motihariSand: #FFFBF0;
+  --color-motihari-cream: #FFF8E7;
+  --color-motihariCream: #FFF8E7;
   --color-ranchi-sand: #FFFBF0;
   --color-ranchiSand: #FFFBF0;
   --color-ranchi-cream: #FFF8E7;
@@ -41,7 +45,7 @@ body {
   padding: 0;
 }
 
-/* Retro-Tech Ranchi Sand Grid Pattern */
+/* Retro-Tech Portal Sand Grid Pattern */
 .bg-grid-pattern {
   background-color: #FFFBF0;
   background-image: 
@@ -74,4 +78,3 @@ body {
   width: max-content;
   animation: marquee 25s linear infinite;
 }
-

@@ -12,7 +12,7 @@ const CONFIG = {
   yOffset: 0, // Offset from center. Positive = up, Negative = down.
   color: rgb(0.27, 0.54, 0.97), // GDG Blue accent #4589f8
   qrSize: 100, // Size of QR code
-  qrBottomOffset: 60, // Distance from bottom
+  qrBottomOffset: 73, // Distance from bottom (shifted up by 5px)
 };
 
 // In-memory cache for custom font bytes to eliminate disk I/O per attendee

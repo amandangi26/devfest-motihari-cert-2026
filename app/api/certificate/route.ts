@@ -2,8 +2,31 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { generateCertificate } from '@/lib/pdf-generator';
 import { getTemplateBytes } from '@/lib/template-cache';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export async function GET(req: NextRequest) {
+  // Rate limiting: 25 certificate requests per 1 minute per IP
+  const ip = getClientIp(req);
+  const limitResult = checkRateLimit(`cert-route:${ip}`, {
+    windowMs: 60 * 1000,
+    max: 25,
+    message: 'Too many certificate requests. Please slow down and try again shortly.',
+  });
+
+  if (!limitResult.success) {
+    return NextResponse.json(
+      { error: limitResult.message },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(limitResult.resetSeconds),
+          'X-RateLimit-Limit': String(limitResult.limit),
+          'X-RateLimit-Remaining': '0',
+        },
+      }
+    );
+  }
+
   const { searchParams } = new URL(req.url);
   const rawTicketId = searchParams.get('ticketId');
 
@@ -61,6 +84,8 @@ export async function GET(req: NextRequest) {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="GDG_Certificate_${safeFilename}.pdf"`,
         'Cache-Control': 'private, no-transform, max-age=3600',
+        'X-RateLimit-Limit': String(limitResult.limit),
+        'X-RateLimit-Remaining': String(limitResult.remaining),
       },
     });
   } catch (error) {

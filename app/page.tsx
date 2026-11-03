@@ -7,19 +7,16 @@ import {
   AlertCircle,
   Loader2,
   CheckCircle2,
-  Sparkles,
-  ExternalLink,
   Award,
   ShieldCheck,
   FileText,
   Printer,
   ImageIcon,
+  ExternalLink,
 } from 'lucide-react';
 import Link from 'next/link';
-import Image from 'next/image';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-
 
 interface PdfPage {
   getViewport: (options: { scale: number }) => { width: number; height: number };
@@ -176,7 +173,7 @@ export default function Home() {
         const link = document.createElement('a');
         link.href = pngUrl;
         const safeName = attendeeName.trim().replace(/\s+/g, '_') || 'Attendee';
-        link.download = `DevFest_Ranchi_2026_Certificate_${safeName}.png`;
+        link.download = `GDG_Cloud_Motihari_Certificate_${safeName}.png`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -186,7 +183,7 @@ export default function Home() {
       const link = document.createElement('a');
       link.href = downloadUrl;
       const safeName = attendeeName.trim().replace(/\s+/g, '_') || 'Attendee';
-      link.download = `DevFest_Ranchi_2026_Certificate_${safeName}.pdf`;
+      link.download = `GDG_Cloud_Motihari_Certificate_${safeName}.pdf`;
       link.click();
     } finally {
       setDownloadingPng(false);
@@ -195,59 +192,24 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-grid-pattern text-[#111111] font-sans flex flex-col selection:bg-[#FBBC05] selection:text-black relative overflow-x-hidden">
-      {/* Halloween Top Spider Web Accents */}
-      <Image
-        src="/assets/spider-web.png"
-        alt=""
-        width={288}
-        height={277}
-        unoptimized
-        className="absolute -top-6 -right-6 sm:-top-4 sm:-right-4 w-44 sm:w-72 opacity-80 pointer-events-none select-none z-0"
-      />
-      <Image
-        src="/assets/spider-web.png"
-        alt=""
-        width={224}
-        height={215}
-        unoptimized
-        className="absolute -top-10 -left-10 w-36 sm:w-56 opacity-35 pointer-events-none select-none z-0 transform -scale-x-100"
-      />
-
-      {/* Hanging Spider from top right */}
-      <div
-        className="absolute top-0 right-10 sm:right-28 hidden md:block pointer-events-none select-none z-20 animate-bounce"
-        style={{ animationDuration: '4s' }}
-      >
-        <Image src="/assets/spider.svg" alt="Spider" width={64} height={192} unoptimized className="w-12 sm:w-16 h-48 object-contain" />
-      </div>
-
       {/* Official Main Website Navbar & Announcement Marquee */}
       <Navbar />
 
       {/* Main Content Area */}
-      <main className="flex-grow max-w-6xl w-full mx-auto px-4 sm:px-6 pt-32 sm:pt-40 pb-12 space-y-10 relative z-10">
-        {/* Hero Section styled exactly like the screenshot */}
+      <main className="flex-grow max-w-6xl w-full mx-auto px-4 sm:px-6 pt-32 sm:pt-40 pb-16 space-y-10 relative z-10">
+        {/* Clean Hero Section */}
         <div className="text-center space-y-5 max-w-3xl mx-auto pt-2">
-          {/* Kicker Pill Badge (Matches Screenshot) with Cute Bat Icon */}
-          <div className="inline-flex items-center gap-2 px-4 sm:px-5 py-1.5 rounded-full border-2 border-black bg-white shadow-[3px_3px_0_0_#000] relative">
+          {/* Kicker Pill Badge */}
+          <div className="inline-flex items-center gap-2 px-4 sm:px-5 py-1.5 rounded-full border-2 border-black bg-white shadow-[3px_3px_0_0_#000]">
             <div className="w-5 h-5 rounded-full border border-black/20 bg-[#4285F4]/15 text-[#4285F4] flex items-center justify-center">
-              {/* <Sparkles className="w-3.5 h-3.5 stroke-[2.5]" /> */}
+              <Award className="w-3.5 h-3.5 stroke-[2.5]" />
             </div>
             <span className="font-black text-xs uppercase tracking-[0.08em] text-[#111]">
-              Official Event Credentials & Stages
+              GDG CLOUD MOTIHARI CREDENTIALS
             </span>
-            {/* Little Bat Fluttering */}
-            <Image
-              src="/assets/bat.svg"
-              alt="Bat"
-              width={28}
-              height={20}
-              unoptimized
-              className="w-7 h-5 absolute -top-3.5 -right-5 pointer-events-none select-none transform rotate-12"
-            />
           </div>
 
-          {/* Heading with Yellow Capsule Pill (Exact Screenshot Match) */}
+          {/* Heading with Yellow Capsule Pill */}
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black uppercase tracking-tight text-[#111] leading-[1.1] sm:leading-[1.15] flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
             <span>Download Your</span>
             <span className="inline-block px-6 sm:px-10 py-1 sm:py-2.5 rounded-full border-[3px] sm:border-4 border-black bg-[#FBBC05] text-[#111] shadow-[4px_4px_0_0_#000] sm:shadow-[6px_6px_0_0_#000] transform -rotate-1 hover:rotate-0 transition-all select-none">
@@ -255,34 +217,23 @@ export default function Home() {
             </span>
           </h1>
 
-          {/* Subtitle (Exact layout & font from Screenshot) */}
+          {/* Subtitle */}
           <p className="text-sm sm:text-base font-medium text-[#444] leading-relaxed max-w-2xl mx-auto">
-            Whether you attended technical sessions, hands-on workshops, or networked with developers — verify your check-in and claim the official DevFest Ranchi 2026 track credential that fits your achievements.
+            Verify your check-in and download your authenticated GDG CLOUD MOTIHARI Certificate of Participation.
           </p>
         </div>
 
         {/* Neo-Brutalist Main Card & Search */}
         <div className="max-w-2xl mx-auto relative">
-          {/* Flying Bat Accent on Card Corner */}
-          <Image
-            src="/assets/bat.svg"
-            alt=""
-            width={40}
-            height={28}
-            unoptimized
-            className="w-10 h-7 absolute -top-5 -left-4 pointer-events-none select-none z-20 transform -rotate-12"
-          />
-
-
           <div className="rounded-[24px] sm:rounded-[28px] border-[3px] border-black bg-white p-6 sm:p-8 shadow-[6px_6px_0_0_#000] space-y-6 relative overflow-hidden">
             {/* Step & Status Bar */}
             <div className="flex items-center justify-between pb-3.5 border-b-2 border-black/10">
               <span className="text-xs font-black uppercase text-[#4285F4] tracking-[0.08em] flex items-center gap-1.5">
-                <span>STEP 1 — VERIFY TICKET ORDER ID</span>
+                <span>STEP 1 — ENTER TICKET ORDER ID</span>
               </span>
               <span className="text-[10.5px] font-bold px-2.5 py-0.5 rounded-full border border-black bg-[#E6F4EA] text-[#137333] flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3" />
-                Verified Attendee
+                Verified Portal
               </span>
             </div>
 
@@ -292,7 +243,7 @@ export default function Home() {
                 Find Your Official Credential
               </h2>
               <p className="text-xs sm:text-sm font-semibold text-[#555] leading-relaxed">
-                Enter your Ticket Order ID from your confirmation email or badge (e.g.{' '}
+                Enter your Ticket Order ID from your registration confirmation or badge (e.g.{' '}
                 <span className="font-mono font-bold text-[#111]">GOOGE252748058</span>).
               </p>
             </div>
@@ -333,13 +284,11 @@ export default function Home() {
                   </>
                 ) : (
                   <>
-                    {/* <Sparkles className="w-4 h-4 text-[#FBBC05]" /> */}
                     <span>Generate & View Certificate</span>
                   </>
                 )}
               </button>
             </form>
-
 
             {/* Error Notification */}
             {error && (
@@ -361,17 +310,6 @@ export default function Home() {
           <div ref={previewRef} className="max-w-4xl mx-auto space-y-6">
             {/* Verification Badge Card */}
             <div className="rounded-[24px] sm:rounded-[28px] border-[3px] border-black bg-white p-6 sm:p-8 shadow-[6px_6px_0_0_#000] space-y-5 relative">
-              {/* Bat accent on verified card */}
-              <Image
-                src="/assets/bat.svg"
-                alt=""
-                width={36}
-                height={24}
-                unoptimized
-                className="w-9 h-6 absolute top-4 right-6 pointer-events-none select-none opacity-80"
-              />
-
-
               <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b-2 border-black/10">
                 <div className="flex items-center gap-3">
                   <div className="w-11 h-11 rounded-full border-2 border-black bg-[#34A853] text-white flex items-center justify-center font-black shadow-[2px_2px_0_0_#000]">
@@ -393,11 +331,9 @@ export default function Home() {
                   </span>
                   <Link
                     href={`/verify/${encodeURIComponent(verifiedTicketId)}`}
-                    target="_blank"
                     className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-black bg-white hover:bg-[#FFF8E7] text-[#111] font-black text-xs uppercase tracking-wider shadow-[1.5px_1.5px_0_0_#000] transition-all"
                   >
                     <span>Audit Page</span>
-                    <ExternalLink className="w-3 h-3" />
                   </Link>
                 </div>
               </div>
@@ -409,7 +345,7 @@ export default function Home() {
                     Event
                   </span>
                   <span className="text-xs font-black text-[#111] block mt-0.5">
-                    DevFest Ranchi 2026
+                    GDG CLOUD MOTIHARI
                   </span>
                 </div>
                 <div className="rounded-xl border border-black/20 bg-[#FFF8E7] p-3">
@@ -417,7 +353,7 @@ export default function Home() {
                     Organizer
                   </span>
                   <span className="text-xs font-black text-[#111] block mt-0.5">
-                    GDG Ranchi Community
+                    GDG Cloud Motihari
                   </span>
                 </div>
                 <div className="rounded-xl border border-black/20 bg-[#FFF8E7] p-3">
@@ -452,7 +388,7 @@ export default function Home() {
                       <div className="w-3 h-3 rounded-full border border-black bg-[#34A853]" />
                     </div>
                     <span className="font-mono text-[11px] font-black uppercase tracking-wider text-[#111]">
-                      DEVFEST_RANCHI_2026_{attendeeName.replace(/\s+/g, '_') || 'CERTIFICATE'}.PDF
+                      GDG_CLOUD_MOTIHARI_{attendeeName.replace(/\s+/g, '_') || 'CERTIFICATE'}.PDF
                     </span>
                     <a
                       href={downloadUrl}
@@ -469,7 +405,7 @@ export default function Home() {
                   <div className="relative w-full aspect-[4/3] sm:aspect-[1.414/1] max-h-[520px] bg-[#EFEFEF]">
                     <iframe
                       src={`${downloadUrl}#toolbar=0&navpanes=0&scrollbar=0`}
-                      title="DevFest Ranchi Certificate Preview"
+                      title="GDG Cloud Motihari Certificate Preview"
                       className="w-full h-full border-0"
                     />
                   </div>
@@ -482,7 +418,7 @@ export default function Home() {
                   {/* Primary Download Button: PDF */}
                   <a
                     href={downloadUrl}
-                    download={`DevFest_Ranchi_2026_Certificate_${attendeeName.trim().replace(/\s+/g, '_') || 'Attendee'}.pdf`}
+                    download={`GDG_Cloud_Motihari_Certificate_${attendeeName.trim().replace(/\s+/g, '_') || 'Attendee'}.pdf`}
                     className="inline-flex items-center justify-center gap-2.5 px-6 sm:px-7 py-3.5 rounded-full bg-[#34A853] hover:bg-[#2d9147] text-white font-black text-xs sm:text-sm uppercase tracking-wider border-2 border-black shadow-[3.5px_3.5px_0_0_#000] hover:shadow-[1.5px_1.5px_0_0_#000] hover:translate-x-[2px] hover:translate-y-[2px] active:translate-y-[3.5px] active:shadow-none transition-all cursor-pointer select-none"
                   >
                     <Download className="w-4 h-4 stroke-[2.5]" />
@@ -525,13 +461,10 @@ export default function Home() {
           </div>
         )}
 
-        {/* Official Credential Challenge Badge */}
-        <div className="max-w-2xl mx-auto rounded-xl border border-black/15 bg-blue-50/60 p-3.5 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-[#3B4A60] shadow-[2px_2px_0_0_#000]">
+        {/* Official Credential Notice Badge */}
+        <div className="max-w-2xl mx-auto rounded-xl border border-black/15 bg-blue-50/60 p-3.5 flex items-center justify-center text-center text-xs font-bold text-[#3B4A60] shadow-[2px_2px_0_0_#000]">
           <span>
-            Official Credential Issued by: <strong>Google Developer Groups Ranchi</strong>
-          </span>
-          <span className="px-2.5 py-0.5 rounded-md bg-white border border-black/20 text-black font-black uppercase text-[10px]">
-            100% Cryptographically Verified
+            Official Credential Issued by: <strong>GDG CLOUD MOTIHARI</strong>
           </span>
         </div>
 
@@ -546,7 +479,7 @@ export default function Home() {
               Live QR Verification
             </h3>
             <p className="text-xs font-semibold text-[#555] leading-relaxed">
-              Every certificate has a unique cryptographic QR code linking directly to the live GDG Ranchi attendee registry for instant validation.
+              Every certificate has a unique cryptographic QR code linking directly to the live GDG CLOUD MOTIHARI attendee registry for instant validation.
             </p>
           </div>
 
@@ -572,23 +505,11 @@ export default function Home() {
               Official GDG Credential
             </h3>
             <p className="text-xs font-semibold text-[#555] leading-relaxed">
-              Officially recognized and awarded by Google Developer Groups Ranchi to honor active participation in DevFest Ranchi 2026.
+              Officially recognized and awarded by GDG CLOUD MOTIHARI to honor active participation in community technical events and workshops.
             </p>
           </div>
         </div>
       </main>
-
-      {/* Halloween Landscape Skyline Footer Banner from @assets */}
-      <div className="w-full relative overflow-hidden pointer-events-none select-none -mb-1 mt-10">
-        <Image
-          src="/assets/halloween-footer.png"
-          alt="DevFest Ranchi Halloween Skyline"
-          width={2097}
-          height={750}
-          unoptimized
-          className="w-full h-auto max-h-36 sm:max-h-52 object-cover object-bottom"
-        />
-      </div>
 
       {/* Official Main Website Footer */}
       <Footer />
