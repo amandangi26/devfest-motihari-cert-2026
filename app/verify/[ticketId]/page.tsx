@@ -66,7 +66,7 @@ export default async function VerifyPage({ params }: PageProps) {
                 Unverified Credential
               </h1>
               <p className="text-xs sm:text-sm font-semibold text-[#555] leading-relaxed">
-                We could not find an attendee check-in record for Ticket ID: <br />
+                We could not find an attendee check-in record for Booking ID: <br />
                 <span className="inline-block mt-2 font-mono font-bold text-xs bg-[#FFF8E7] px-3 py-1 rounded-lg border-2 border-black shadow-[2px_2px_0_0_#000]">
                   {ticketId}
                 </span>
@@ -144,7 +144,7 @@ export default async function VerifyPage({ params }: PageProps) {
             </div>
             <div className="pb-2 border-b border-black/10">
               <p className="text-[10px] text-[#666] uppercase tracking-wider font-bold">
-                Ticket Order ID
+                Booking ID
               </p>
               <p className="text-sm font-mono font-bold text-[#111]">
                 {attendee.ticketId}

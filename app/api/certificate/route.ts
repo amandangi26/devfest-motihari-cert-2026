@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   const rawTicketId = searchParams.get('ticketId');
 
   if (!rawTicketId || !rawTicketId.trim()) {
-    return NextResponse.json({ error: 'Ticket Order ID is required.' }, { status: 400 });
+    return NextResponse.json({ error: 'Booking ID is required.' }, { status: 400 });
   }
 
   const cleanTicketId = rawTicketId.trim();
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            'It seems you did not check-in at the event, so no certificate was found. Please enter a valid ticket order ID.',
+            'It seems you did not check-in at the event, so no certificate was found. Please enter a valid Booking ID.',
         },
         { status: 404 }
       );

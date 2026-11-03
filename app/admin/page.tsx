@@ -826,7 +826,7 @@ export default function AdminPage() {
               </div>
 
               <p className="text-xs font-semibold text-[#555] leading-relaxed">
-                Upload your event attendee check-in roster. Supports Excel (.xlsx, .xls) and CSV with Column 1 = Ticket Order ID, Column 2 = Full Name. A preview with exact record counts will appear before saving.
+                Upload your event attendee check-in roster. Supports Excel (.xlsx, .xls) and CSV with Column 1 = Booking ID, Column 2 = Full Name. A preview with exact record counts will appear before saving.
               </p>
 
               {/* State 1: File Selection & Analysis */}
@@ -951,10 +951,10 @@ export default function AdminPage() {
                         onClick={handleSwapColumns}
                         disabled={loadingPreview || committingImport}
                         className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-black bg-white hover:bg-[#FBBC05] text-[#111] font-black text-[10px] uppercase tracking-wider shadow-[1.5px_1.5px_0_0_#000] active:translate-y-0.5 transition-all cursor-pointer"
-                        title="Click if Ticket ID and Name columns are reversed"
+                        title="Click if Booking ID and Name columns are reversed"
                       >
                         <RefreshCw className={`w-3 h-3 ${loadingPreview ? 'animate-spin' : ''}`} />
-                        <span>Swap Columns (Name ↔ Ticket)</span>
+                        <span>Swap Columns (Name ↔ Booking ID)</span>
                       </button>
                     </div>
 
@@ -1075,7 +1075,7 @@ export default function AdminPage() {
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-black uppercase tracking-wider text-[#111]">
-                  Ticket Order ID
+                  Booking ID
                 </label>
                 <input
                   type="text"
@@ -1220,7 +1220,7 @@ export default function AdminPage() {
                     <thead className="bg-[#FFF8E7] border-b-2 border-black font-black uppercase text-[11px] text-[#111]">
                       <tr>
                         <th className="px-6 py-3.5">Attendee Name</th>
-                        <th className="px-6 py-3.5">Ticket Order ID</th>
+                        <th className="px-6 py-3.5">Booking ID</th>
                         <th className="px-6 py-3.5">Registration Date</th>
                         <th className="px-6 py-3.5 text-right">Actions</th>
                       </tr>

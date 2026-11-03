@@ -103,7 +103,7 @@ export default function Home() {
         const data = await res.json();
         setError(
           data.error ||
-          'It seems you did not check-in at the event, so no certificate was found. Please enter a valid ticket order ID.'
+          'It seems you did not check-in at the event, so no certificate was found. Please enter a valid Booking ID.'
         );
       }
     } catch (err) {
@@ -229,7 +229,7 @@ export default function Home() {
             {/* Step & Status Bar */}
             <div className="flex items-center justify-between pb-3.5 border-b-2 border-black/10">
               <span className="text-xs font-black uppercase text-[#4285F4] tracking-[0.08em] flex items-center gap-1.5">
-                <span>STEP 1 — ENTER TICKET ORDER ID</span>
+                <span>STEP 1 — ENTER BOOKING ID</span>
               </span>
               <span className="text-[10.5px] font-bold px-2.5 py-0.5 rounded-full border border-black bg-[#E6F4EA] text-[#137333] flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3" />
@@ -243,7 +243,7 @@ export default function Home() {
                 Find Your Official Credential
               </h2>
               <p className="text-xs sm:text-sm font-semibold text-[#555] leading-relaxed">
-                Enter your Ticket Order ID from your registration confirmation or badge (e.g.{' '}
+                Enter your Booking ID from your registration confirmation or badge (e.g.{' '}
                 <span className="font-mono font-bold text-[#111]">8131XXXX</span>).
               </p>
             </div>
@@ -255,7 +255,7 @@ export default function Home() {
                   htmlFor="ticketIdInput"
                   className="block text-xs font-black uppercase tracking-wider text-[#111]"
                 >
-                  Ticket Order ID
+                  Booking ID
                 </label>
                 <div className="relative">
                   <input

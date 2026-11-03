@@ -21,6 +21,7 @@ function detectColumns(rows: unknown[][]): { ticketCol: number; nameCol: number;
 
   // 1. Explicit Header keywords check
   const isCol0TicketHeader =
+    col0Header.includes('booking') ||
     col0Header.includes('ticket') ||
     col0Header.includes('order') ||
     col0Header.includes('id') ||
@@ -36,6 +37,7 @@ function detectColumns(rows: unknown[][]): { ticketCol: number; nameCol: number;
     col0Header.includes('student');
 
   const isCol1TicketHeader =
+    col1Header.includes('booking') ||
     col1Header.includes('ticket') ||
     col1Header.includes('order') ||
     col1Header.includes('id') ||
@@ -268,7 +270,7 @@ export async function POST(req: NextRequest) {
         const lowerTicket = rawTicket.toLowerCase();
         const lowerName = rawName.toLowerCase();
         if (
-          (lowerTicket.includes('ticket') || lowerTicket.includes('order') || lowerTicket.includes('id')) &&
+          (lowerTicket.includes('booking') || lowerTicket.includes('ticket') || lowerTicket.includes('order') || lowerTicket.includes('id')) &&
           (lowerName === 'name' || lowerName.includes('attendee') || lowerName.includes('participant'))
         ) {
           skippedCount++;

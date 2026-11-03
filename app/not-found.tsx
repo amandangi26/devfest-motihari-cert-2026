@@ -74,7 +74,7 @@ export default function NotFound() {
 
             {/* Helpful Helper note */}
             <div className="mt-8 pt-6 border-t-2 border-dashed border-black/20 text-xs text-black/60 font-semibold">
-              Looking to verify a participant certificate? Make sure the URL includes a valid Ticket ID.
+              Looking to verify a participant certificate? Make sure the URL includes a valid Booking ID.
             </div>
           </div>
         </div>

@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
         }
 
         if (!ticketId || typeof ticketId !== 'string' || !ticketId.trim()) {
-            return NextResponse.json({ error: 'Ticket Order ID is required.' }, { status: 400 });
+            return NextResponse.json({ error: 'Booking ID is required.' }, { status: 400 });
         }
 
         const cleanName = name.trim();
