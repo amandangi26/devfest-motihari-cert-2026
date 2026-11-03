@@ -25,14 +25,20 @@ export async function GET(req: NextRequest) {
         const rawUrl = process.env.DATABASE_URL || '';
         const isDirectSupabase = rawUrl.includes('.supabase.co:5432');
         const isCantReach = error?.message?.includes("Can't reach database server");
+        const isPreparedStatementError = error?.message?.includes('prepared statement') || error?.message?.includes('42P05');
+
+        let hint = 'Please verify DATABASE_URL in your environment variables.';
+        if (isPreparedStatementError) {
+            hint = 'PgBouncer / Supabase Transaction Pooler: Port 6543 requires "?pgbouncer=true" in DATABASE_URL, or switch port 6543 to 5432 (Session Mode).';
+        } else if (isDirectSupabase && isCantReach) {
+            hint = 'Direct Supabase connection (.supabase.co:5432) is IPv6-only and unsupported by Vercel serverless functions. Switch your DATABASE_URL in Vercel to the Supabase Connection Pooler URL (aws-0-...pooler.supabase.com:6543?pgbouncer=true).';
+        }
 
         return NextResponse.json(
             {
                 error: 'Database connection failed',
                 details: error?.message || 'Failed to query database.',
-                hint: isDirectSupabase && isCantReach
-                    ? 'Direct Supabase connection (.supabase.co:5432) is IPv6-only and unsupported by Vercel serverless functions. Switch your DATABASE_URL in Vercel to the Supabase Connection Pooler URL (aws-0-...pooler.supabase.com:6543?pgbouncer=true).'
-                    : 'Please verify DATABASE_URL in your environment variables.',
+                hint,
             },
             { status: 500 }
         );

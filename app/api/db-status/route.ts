@@ -48,6 +48,14 @@ export async function GET() {
 
     const errorMessage = error?.message || 'Failed to connect to database.';
     const isCantReach = errorMessage.includes("Can't reach database server") || errorMessage.includes('ETIMEDOUT') || errorMessage.includes('ECONNREFUSED');
+    const isPreparedStatementError = errorMessage.includes('prepared statement') || errorMessage.includes('42P05');
+
+    let hint = 'Please check your DATABASE_URL in Vercel project settings and ensure credentials are correct and database is active.';
+    if (isPreparedStatementError) {
+      hint = 'PgBouncer / Supavisor Transaction Pooler collision: Port 6543 does not support named prepared statements. Please append "?pgbouncer=true" to your DATABASE_URL in Vercel, or switch port 6543 to 5432 (Session Mode).';
+    } else if (isDirectSupabase && isCantReach) {
+      hint = 'Vercel Serverless IPv6 Incompatibility Detected: Your DATABASE_URL uses db.<project-ref>.supabase.co:5432 (direct connection), which only supports IPv6. Vercel functions cannot route outbound IPv6. In your Vercel Dashboard, replace DATABASE_URL with the Supabase Connection Pooler URL (Transaction Mode port 6543 with ?pgbouncer=true).';
+    }
 
     return NextResponse.json(
       {
@@ -56,11 +64,10 @@ export async function GET() {
         host: safeHost,
         error: errorMessage,
         isDirectSupabase,
-        hint: isDirectSupabase && isCantReach
-          ? 'Vercel Serverless IPv6 Incompatibility Detected: Your DATABASE_URL uses db.<project-ref>.supabase.co:5432 (direct connection), which only supports IPv6. Vercel functions cannot route outbound IPv6. In your Vercel Dashboard, replace DATABASE_URL with the Supabase Connection Pooler URL (Transaction Mode port 6543 with ?pgbouncer=true).'
-          : 'Please check your DATABASE_URL in Vercel project settings and ensure credentials are correct and database is active.',
+        hint,
       },
       { status: 500 }
     );
   }
 }
+
