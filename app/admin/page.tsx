@@ -83,6 +83,7 @@ export default function AdminPage() {
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [committingImport, setCommittingImport] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isSwapped, setIsSwapped] = useState(false);
 
   // Manual single attendee entry states
   const [manualName, setManualName] = useState('');
@@ -293,6 +294,35 @@ export default function AdminPage() {
   const handleCancelPreview = () => {
     setSpreadsheetPreview(null);
     setSelectedFile(null);
+    setIsSwapped(false);
+  };
+
+  // Swap Column 1 and Column 2 (Ticket ID <-> Name)
+  const handleSwapColumns = async () => {
+    if (!selectedFile) return;
+    const nextSwap = !isSwapped;
+    setIsSwapped(nextSwap);
+    setLoadingPreview(true);
+    setSpreadsheetMessage(null);
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+
+    try {
+      const res = await fetch(`/api/upload?preview=true${nextSwap ? '&swap=true' : ''}`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (res.ok && data.preview) {
+        setSpreadsheetPreview(data);
+      }
+    } catch {
+      console.error('Failed to swap columns');
+    } finally {
+      setLoadingPreview(false);
+    }
   };
 
   // Handle Spreadsheet Bulk Upload (Direct fallback)
@@ -908,11 +938,24 @@ export default function AdminPage() {
 
                   {/* Preview Table */}
                   <div className="rounded-xl border-2 border-black bg-white overflow-hidden shadow-[2px_2px_0_0_#000]">
-                    <div className="px-3.5 py-2 bg-[#FFF8E7] border-b-2 border-black flex items-center justify-between text-[11px] font-black uppercase text-[#111]">
-                      <span>Data Preview (First {Math.min(30, spreadsheetPreview.previewRows.length)} rows)</span>
-                      <span className="font-mono text-[10px] text-[#666]">
-                        {spreadsheetPreview.totalCount} total entries
-                      </span>
+                    <div className="px-3.5 py-2.5 bg-[#FFF8E7] border-b-2 border-black flex flex-wrap items-center justify-between gap-2 text-[11px] font-black uppercase text-[#111]">
+                      <div className="flex items-center gap-2">
+                        <span>Preview (First {Math.min(30, spreadsheetPreview.previewRows.length)} rows)</span>
+                        <span className="font-mono text-[10px] text-[#666]">
+                          • {spreadsheetPreview.totalCount} total entries
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleSwapColumns}
+                        disabled={loadingPreview || committingImport}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-black bg-white hover:bg-[#FBBC05] text-[#111] font-black text-[10px] uppercase tracking-wider shadow-[1.5px_1.5px_0_0_#000] active:translate-y-0.5 transition-all cursor-pointer"
+                        title="Click if Ticket ID and Name columns are reversed"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${loadingPreview ? 'animate-spin' : ''}`} />
+                        <span>Swap Columns (Name ↔ Ticket)</span>
+                      </button>
                     </div>
 
                     <div className="max-h-[220px] overflow-y-auto divide-y divide-black/10 text-xs">
