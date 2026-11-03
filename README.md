@@ -11,7 +11,7 @@ Official Certificate Distribution and Verification Platform for GDG CLOUD MOTIHA
 
 ## Getting Started
 
-First, install dependencies:
+First, install dependencies: 
 
 ```bash
 npm install
