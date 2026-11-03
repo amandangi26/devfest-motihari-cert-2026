@@ -49,7 +49,7 @@ export default function Home() {
   const [verifiedTicketId, setVerifiedTicketId] = useState('');
   const previewRef = useRef<HTMLDivElement>(null);
 
-  // Check URL parameters for ticketId (e.g. ?ticketId=GOOGE252748058)
+  // Check URL parameters for ticketId (e.g. ?ticketId=8131XXXX)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -244,7 +244,7 @@ export default function Home() {
               </h2>
               <p className="text-xs sm:text-sm font-semibold text-[#555] leading-relaxed">
                 Enter your Ticket Order ID from your registration confirmation or badge (e.g.{' '}
-                <span className="font-mono font-bold text-[#111]">GOOGE252748058</span>).
+                <span className="font-mono font-bold text-[#111]">8131XXXX</span>).
               </p>
             </div>
 
@@ -263,7 +263,7 @@ export default function Home() {
                     type="text"
                     value={ticketId}
                     onChange={(e) => setTicketId(e.target.value.toUpperCase().replace(/\s+/g, ''))}
-                    placeholder="e.g. GOOGE252748058"
+                    placeholder="e.g. 8131XXXX"
                     className="w-full h-12 pl-11 pr-4 rounded-xl border-2 border-black bg-white font-mono text-sm font-bold text-[#111] placeholder:text-[#999] shadow-[2.5px_2.5px_0_0_#000] focus:border-[#4285F4] focus:shadow-[3px_3px_0_0_#4285F4] outline-none transition-all uppercase"
                     required
                   />

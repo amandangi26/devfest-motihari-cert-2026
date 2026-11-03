@@ -1081,7 +1081,7 @@ export default function AdminPage() {
                   type="text"
                   value={manualTicketId}
                   onChange={(e) => setManualTicketId(e.target.value.toUpperCase().replace(/\s+/g, ''))}
-                  placeholder="e.g. GOOGE252748058 or DF26-9041"
+                  placeholder="e.g. 8131XXXX"
                   className="w-full h-11 px-4 rounded-xl border-2 border-black bg-white font-mono text-sm font-bold text-[#111] placeholder:text-[#999] shadow-[2.5px_2.5px_0_0_#000] focus:border-[#4285F4] focus:shadow-[3px_3px_0_0_#4285F4] outline-none transition-all uppercase"
                   required
                 />
