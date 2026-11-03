@@ -18,6 +18,8 @@ import {
   UserPlus,
   ShieldAlert,
   ExternalLink,
+  Database,
+  Activity,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -32,6 +34,16 @@ interface Attendee {
 interface TemplateInfo {
   isCustom: boolean;
   sizeBytes: number;
+}
+
+interface DbStatus {
+  status: 'connected' | 'error' | 'checking';
+  latencyMs?: number;
+  host?: string;
+  error?: string;
+  hint?: string;
+  warning?: string | null;
+  isDirectSupabase?: boolean;
 }
 
 export default function AdminPage() {
@@ -57,6 +69,8 @@ export default function AdminPage() {
 
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [loadingAttendees, setLoadingAttendees] = useState(false);
+  const [attendeesError, setAttendeesError] = useState<{ message: string; hint?: string } | null>(null);
+  const [dbStatus, setDbStatus] = useState<DbStatus>({ status: 'checking' });
   const [stats, setStats] = useState({ total: 0 });
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -64,19 +78,54 @@ export default function AdminPage() {
 
   const router = useRouter();
 
+  const checkDbStatus = async () => {
+    setDbStatus((prev) => ({ ...prev, status: 'checking' }));
+    try {
+      const res = await fetch('/api/db-status');
+      const data = await res.json();
+      if (res.ok) {
+        setDbStatus(data);
+      } else {
+        setDbStatus({
+          status: 'error',
+          latencyMs: data.latencyMs,
+          host: data.host,
+          error: data.error || 'Failed to connect to database.',
+          hint: data.hint,
+          isDirectSupabase: data.isDirectSupabase,
+        });
+      }
+    } catch {
+      setDbStatus({
+        status: 'error',
+        error: 'Network failure when testing database connection.',
+      });
+    }
+  };
+
   const fetchAttendees = async () => {
     setLoadingAttendees(true);
+    setAttendeesError(null);
     try {
       const res = await fetch('/api/attendees');
       if (res.ok) {
         const data = await res.json();
-        setAttendees(data.attendees);
-        setStats({ total: data.count });
+        setAttendees(data.attendees || []);
+        setStats({ total: data.count || 0 });
       } else if (res.status === 401) {
         router.push('/login');
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setAttendeesError({
+          message: errData.details || errData.error || 'Failed to load attendee records from database.',
+          hint: errData.hint,
+        });
       }
     } catch {
       console.error('Failed to fetch attendees');
+      setAttendeesError({
+        message: 'Network error communicating with the attendees API.',
+      });
     } finally {
       setLoadingAttendees(false);
     }
@@ -97,6 +146,7 @@ export default function AdminPage() {
   useEffect(() => {
     fetchAttendees();
     fetchTemplateInfo();
+    checkDbStatus();
   }, []);
 
   // Handle PDF Template Upload
@@ -297,7 +347,41 @@ export default function AdminPage() {
             </Link>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            {/* Live Database Status Pill in Header */}
+            <button
+              onClick={() => {
+                checkDbStatus();
+                fetchAttendees();
+              }}
+              title={dbStatus.error ? `Error: ${dbStatus.error}` : `Host: ${dbStatus.host || 'Unknown'}`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 border-black font-black text-xs uppercase tracking-wider shadow-[2px_2px_0_0_#000] transition-all cursor-pointer select-none ${
+                dbStatus.status === 'connected'
+                  ? 'bg-[#E6F4EA] text-[#137333] hover:bg-[#ceead6]'
+                  : dbStatus.status === 'checking'
+                  ? 'bg-[#FEF7E0] text-[#B06000]'
+                  : 'bg-[#FCE8E6] text-[#C5221F] hover:bg-[#fad2cf]'
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  dbStatus.status === 'connected'
+                    ? 'bg-[#34A853]'
+                    : dbStatus.status === 'checking'
+                    ? 'bg-[#FBBC05] animate-pulse'
+                    : 'bg-[#EA4335] animate-ping'
+                }`}
+              />
+              <Database className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>
+                {dbStatus.status === 'connected'
+                  ? `DB Online (${dbStatus.latencyMs}ms)`
+                  : dbStatus.status === 'checking'
+                  ? 'Testing DB...'
+                  : 'DB Offline'}
+              </span>
+            </button>
+
             <Link
               href="/"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-black bg-white hover:bg-[#FFF8E7] text-[#111] font-black text-xs uppercase tracking-wider shadow-[1.5px_1.5px_0_0_#000] transition-all"
@@ -322,6 +406,59 @@ export default function AdminPage() {
       </header>
 
       <main className="flex-grow max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 space-y-6">
+        {/* Prominent Database Diagnostics Alert if Error */}
+        {(dbStatus.status === 'error' || attendeesError) && (
+          <div className="rounded-[20px] border-[3px] border-[#EA4335] bg-[#FFF5F5] p-5 sm:p-6 shadow-[5px_5px_0_0_#EA4335] space-y-3">
+            <div className="flex items-start gap-3.5">
+              <div className="w-9 h-9 rounded-full bg-[#EA4335] text-white flex items-center justify-center font-black flex-shrink-0 mt-0.5 shadow-[1.5px_1.5px_0_0_#000]">
+                !
+              </div>
+              <div className="space-y-2 flex-1 min-w-0">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h4 className="font-black text-sm uppercase tracking-wide text-[#C5221F]">
+                    Database Connection Issue Detected
+                  </h4>
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#EA4335] text-white text-[10px] font-black uppercase tracking-wider">
+                    {dbStatus.host || 'Direct Supabase'}
+                  </span>
+                </div>
+                
+                <p className="text-xs font-semibold text-black/85 leading-relaxed font-mono break-all bg-white/70 p-2.5 rounded-lg border border-[#EA4335]/30">
+                  {dbStatus.error || attendeesError?.message}
+                </p>
+                
+                {(dbStatus.hint || attendeesError?.hint) && (
+                  <div className="p-3.5 bg-white border-2 border-[#EA4335] rounded-xl text-xs space-y-1.5">
+                    <p className="font-black text-[#EA4335] uppercase text-[11px] tracking-wider flex items-center gap-1.5">
+                      <span>💡</span>
+                      <span>How to Fix on Vercel:</span>
+                    </p>
+                    <p className="text-black/80 font-medium leading-relaxed">
+                      {dbStatus.hint || attendeesError?.hint}
+                    </p>
+                  </div>
+                )}
+
+                <div className="pt-1 flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => {
+                      checkDbStatus();
+                      fetchAttendees();
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border-2 border-black bg-white hover:bg-[#FFFBF0] text-black font-black text-xs uppercase shadow-[2px_2px_0_0_#000] active:translate-x-[1px] active:translate-y-[1px] cursor-pointer transition-all"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${dbStatus.status === 'checking' ? 'animate-spin' : ''}`} />
+                    <span>Retry Connection</span>
+                  </button>
+                  <span className="text-[11px] text-black/60 font-semibold">
+                    Changes made in Vercel require a Redeploy to take effect.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Stats Row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="rounded-[20px] border-[3px] border-black bg-white p-5 shadow-[4px_4px_0_0_#000] flex items-center gap-4">
@@ -367,16 +504,69 @@ export default function AdminPage() {
             </a>
           </div>
 
-          <div className="rounded-[20px] border-[3px] border-black bg-white p-5 shadow-[4px_4px_0_0_#000] flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full border-2 border-black bg-[#FBBC05] text-[#111] flex items-center justify-center font-black shadow-[2px_2px_0_0_#000]">
-              <Check className="w-6 h-6 stroke-[2.5]" />
+          {/* Database Connection Status Card */}
+          <div className="rounded-[20px] border-[3px] border-black bg-white p-5 shadow-[4px_4px_0_0_#000] flex items-center justify-between gap-3">
+            <div className="flex items-center gap-4 min-w-0">
+              <div
+                className={`w-12 h-12 rounded-full border-2 border-black flex items-center justify-center font-black shadow-[2px_2px_0_0_#000] flex-shrink-0 ${
+                  dbStatus.status === 'connected'
+                    ? 'bg-[#34A853] text-white'
+                    : dbStatus.status === 'checking'
+                    ? 'bg-[#FBBC05] text-[#111]'
+                    : 'bg-[#EA4335] text-white'
+                }`}
+              >
+                <Database className="w-6 h-6 stroke-[2.5]" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-black uppercase tracking-wider text-[#666]">
+                  Database Status
+                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span
+                    className={`inline-block w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                      dbStatus.status === 'connected'
+                        ? 'bg-[#34A853]'
+                        : dbStatus.status === 'checking'
+                        ? 'bg-[#FBBC05] animate-pulse'
+                        : 'bg-[#EA4335]'
+                    }`}
+                  />
+                  <h3
+                    className={`text-sm font-black truncate ${
+                      dbStatus.status === 'connected'
+                        ? 'text-[#34A853]'
+                        : dbStatus.status === 'checking'
+                        ? 'text-[#FBBC05]'
+                        : 'text-[#EA4335]'
+                    }`}
+                  >
+                    {dbStatus.status === 'connected'
+                      ? `Connected (${dbStatus.latencyMs}ms)`
+                      : dbStatus.status === 'checking'
+                      ? 'Checking...'
+                      : 'Connection Failed'}
+                  </h3>
+                </div>
+                {dbStatus.host && (
+                  <p className="text-[10px] font-mono text-[#777] truncate mt-0.5" title={dbStatus.host}>
+                    {dbStatus.host}
+                  </p>
+                )}
+              </div>
             </div>
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-wider text-[#666]">
-                Verification System
-              </p>
-              <h3 className="text-sm font-black text-[#111]">Active & Live</h3>
-            </div>
+
+            <button
+              onClick={() => {
+                checkDbStatus();
+                fetchAttendees();
+              }}
+              disabled={dbStatus.status === 'checking'}
+              className="p-2.5 rounded-full border-2 border-black bg-[#FFF8E7] hover:bg-[#FBBC05] text-[#111] shadow-[2px_2px_0_0_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer flex-shrink-0"
+              title="Refresh / Test Database Connection"
+            >
+              <RefreshCw className={`w-4 h-4 ${dbStatus.status === 'checking' ? 'animate-spin' : ''}`} />
+            </button>
           </div>
         </div>
 
@@ -753,7 +943,32 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-black/10">
-                      {paginatedAttendees.length === 0 ? (
+                      {loadingAttendees ? (
+                        <tr>
+                          <td colSpan={4} className="px-6 py-10 text-center text-[#555] font-bold">
+                            <div className="inline-flex items-center gap-2">
+                              <Loader2 className="w-4 h-4 animate-spin text-[#4285F4]" />
+                              <span>Loading attendee records from database...</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : attendeesError ? (
+                        <tr>
+                          <td colSpan={4} className="px-6 py-8 text-center text-[#EA4335] font-bold">
+                            <div className="space-y-1.5 max-w-md mx-auto">
+                              <p className="font-black uppercase tracking-tight text-xs">⚠️ Database Connection Issue</p>
+                              <p className="text-xs text-black/70 font-mono font-normal break-all">{attendeesError.message}</p>
+                              <button
+                                onClick={fetchAttendees}
+                                className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border-2 border-black bg-white hover:bg-[#FFFBF0] text-black text-xs font-black uppercase shadow-[2px_2px_0_0_#000] cursor-pointer active:translate-y-0.5 transition-all"
+                              >
+                                <RefreshCw className="w-3 h-3" />
+                                <span>Retry Fetch</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : paginatedAttendees.length === 0 ? (
                         <tr>
                           <td colSpan={4} className="px-6 py-8 text-center text-[#888] font-bold">
                             {searchQuery ? 'No attendees match your search query.' : 'No attendee records found.'}

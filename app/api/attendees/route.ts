@@ -20,8 +20,22 @@ export async function GET(req: NextRequest) {
         const count = await prisma.attendee.count();
 
         return NextResponse.json({ attendees, count });
-    } catch {
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    } catch (error: any) {
+        console.error('Failed to fetch attendees:', error);
+        const rawUrl = process.env.DATABASE_URL || '';
+        const isDirectSupabase = rawUrl.includes('.supabase.co:5432');
+        const isCantReach = error?.message?.includes("Can't reach database server");
+
+        return NextResponse.json(
+            {
+                error: 'Database connection failed',
+                details: error?.message || 'Failed to query database.',
+                hint: isDirectSupabase && isCantReach
+                    ? 'Direct Supabase connection (.supabase.co:5432) is IPv6-only and unsupported by Vercel serverless functions. Switch your DATABASE_URL in Vercel to the Supabase Connection Pooler URL (aws-0-...pooler.supabase.com:6543?pgbouncer=true).'
+                    : 'Please verify DATABASE_URL in your environment variables.',
+            },
+            { status: 500 }
+        );
     }
 }
 

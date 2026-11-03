@@ -103,3 +103,4 @@ export default function ErrorPage({ error, reset }: ErrorProps) {
     </div>
   );
 }
+
